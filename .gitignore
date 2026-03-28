@@ -1,0 +1,21 @@
+# Bazel: symlinks under workspace root (bazel-bin, bazel-out, bazel-testlogs, bazel-<workspace-name>, …)
+/bazel-*
+
+# Bazel: optional local output base / disk cache if configured inside the repo
+/.bazel-cache/
+/.bazel-output/
+
+# Bazel: sandbox runs under the output base (usually ~/.cache/bazel/.../sandbox), not in the repo.
+# Ignore a stray top-level sandbox/ if tools ever create one here.
+/sandbox/
+
+# Python (pybind / venv)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Editor / OS
+*.swp
+*~
+.DS_Store

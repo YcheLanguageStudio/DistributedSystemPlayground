@@ -1,0 +1,20 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "test_runtime",
+    srcs = ["support/test_runtime.cpp"],
+    hdrs = ["support/test_runtime.h"],
+    includes = ["."],
+    visibility = ["//visibility:private"],
+    deps = ["//src/kv:kv_core"],
+)
+
+cc_test(
+    name = "kv_store_test",
+    size = "small",
+    srcs = ["kv_store_test.cc"],
+    deps = [
+        ":test_runtime",
+        "//src/kv:kv_core",
+    ],
+)

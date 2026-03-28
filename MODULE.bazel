@@ -1,0 +1,25 @@
+module(
+    name = "yche_distsys_playground",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "platforms", version = "1.0.0")
+# Minimal bthread API stub so //smoke and //src/adapters/brpc build without cloning Apache brpc.
+# To use real brpc: clone apache/brpc into third_party/brpc and point local_path_override there
+# (see README.md). Module name and version must match brpc's MODULE.bazel.
+bazel_dep(name = "brpc", version = "1.16.0")
+local_path_override(
+    module_name = "brpc",
+    path = "third_party/brpc_stub_module",
+)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "hiredis",
+    build_file = "//third_party:hiredis.BUILD",
+    sha256 = "82ad632d31ee05da13b537c124f819eb88e18851d9cb0c30ae0552084811588c",
+    strip_prefix = "hiredis-1.2.0",
+    urls = ["https://github.com/redis/hiredis/archive/refs/tags/v1.2.0.tar.gz"],
+)

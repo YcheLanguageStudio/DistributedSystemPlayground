@@ -1,0 +1,1 @@
+# third_party package: hiredis.BUILD is referenced from MODULE.bazel via //third_party:hiredis.BUILD

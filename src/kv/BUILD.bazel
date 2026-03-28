@@ -1,0 +1,19 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "kv_core",
+    srcs = [
+        "backend/memory_connection.cpp",
+        "backend/memory_connection.h",
+        "backend/redis_connection.cpp",
+        "backend/redis_connection.h",
+        "backend/kv_connection.h",
+        "conn_pool.cpp",
+        "conn_pool.h",
+        "store.cpp",
+    ],
+    hdrs = glob(["include/**/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = ["@hiredis//:hiredis"],
+)

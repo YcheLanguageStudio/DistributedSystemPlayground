@@ -1,0 +1,16 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "kv_brpc_adapter",
+    srcs = ["brpc_runtime.cpp"],
+    hdrs = ["brpc_runtime.h"],
+    includes = [
+        ".",
+        "../../kv/include",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/kv:kv_core",
+        "@brpc//:brpc",
+    ],
+)

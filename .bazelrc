@@ -1,0 +1,5 @@
+build --cxxopt=-std=c++17
+build --copt=-Wall
+build --copt=-Wextra
+build --copt=-Wno-unused-parameter
+test --test_output=errors

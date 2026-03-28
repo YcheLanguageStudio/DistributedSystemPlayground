@@ -1,0 +1,4 @@
+# 以 # 开头的行不会写入最终提交说明。启用本模板：git config commit.template .gitmessage
+id:
+reason:
+

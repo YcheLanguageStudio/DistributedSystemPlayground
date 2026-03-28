@@ -1,0 +1,7 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "kv_smoke",
+    srcs = ["kv_smoke.cc"],
+    deps = ["//src/adapters/brpc:kv_brpc_adapter"],
+)

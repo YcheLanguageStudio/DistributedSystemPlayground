@@ -1,0 +1,10 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "brpc",
+    srcs = ["bthread_stub.c"],
+    hdrs = glob(["include/bthread/*.h"]),
+    includes = ["include"],
+    linkopts = ["-pthread"],
+    visibility = ["//visibility:public"],
+)
