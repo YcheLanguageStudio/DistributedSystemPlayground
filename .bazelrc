@@ -8,9 +8,9 @@ build --copt=-Wextra
 build --copt=-Wno-unused-parameter
 test --test_output=errors
 
-# compile_commands.json (//:refresh_compile_commands): hedron checks for ./bazel-out; override symlink layout for that run only:
+# compile_commands.json (//:refresh_compile_commands): hedron needs a workspace bazel-out symlink; keep it under build/ (patched hedron accepts build/bazel-out).
 #   bazel run --config=compile-commands //:refresh_compile_commands
-common:compile-commands --symlink_prefix=bazel-
+common:compile-commands --symlink_prefix=build/bazel-
 
 # C++ coverage (lcov): bazel coverage --config=coverage //tests/...
 # Forward GCOV into test/coverage actions (otherwise sandbox may pick default gcov on PATH).

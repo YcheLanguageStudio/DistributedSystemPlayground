@@ -17,6 +17,17 @@ cc_test(
     deps = [
         ":test_runtime",
         "//src/kv:kv_core",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "brpc_adapter_test",
+    size = "small",
+    srcs = ["brpc_adapter_test.cc"],
+    deps = [
+        "//src/adapters/brpc:kv_brpc_adapter",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

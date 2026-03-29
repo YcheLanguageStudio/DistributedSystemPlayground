@@ -6,6 +6,7 @@ module(
 bazel_dep(name = "rules_cc", version = "0.2.17")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+
 # Python C++ bindings (pybind11); see bindings/python/
 bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
@@ -24,7 +25,10 @@ git_override(
     module_name = "hedron_compile_commands",
     commit = "abb61a688167623088f8768cc9264798df6a9d10",
     patch_strip = 1,
-    patches = ["//:patches/hedron_bazel9_py_binary.patch"],
+    patches = [
+        "//:patches/hedron_bazel9_py_binary.patch",
+        "//:patches/hedron_workspace_bazel_out_symlink.patch",
+    ],
     remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
 )
 
@@ -45,4 +49,13 @@ http_archive(
     sha256 = "82ad632d31ee05da13b537c124f819eb88e18851d9cb0c30ae0552084811588c",
     strip_prefix = "hiredis-1.2.0",
     urls = ["https://github.com/redis/hiredis/archive/refs/tags/v1.2.0.tar.gz"],
+)
+
+# Not bazel_dep("googletest"): BCR release BUILD uses native cc_* (removed in Bazel 9).
+http_archive(
+    name = "com_google_googletest",
+    build_file = "//third_party:googletest.BUILD",
+    sha256 = "65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c",
+    strip_prefix = "googletest-1.17.0",
+    urls = ["https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz"],
 )

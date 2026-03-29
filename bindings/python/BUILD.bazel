@@ -2,6 +2,26 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@rules_python//python:py_library.bzl", "py_library")
 load("@rules_python//python:packaging.bzl", "py_package", "py_wheel")
 
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# Re-export wheel as a stable filename so `.../dist/yche_kv.whl` is easy to find
+# (the versioned .whl path moves between `build/bin` and `build/bazel-bin` when toggling
+# `--config=compile-commands` because symlink_prefix changes).
+
 pybind_extension(
     name = "_yche_kv",
     srcs = ["kv_store_module.cpp"],
@@ -30,7 +50,8 @@ py_wheel(
     abi = "cp311",
     distribution = "yche_kv",
     platform = select({
-        "@platforms//os:linux": "manylinux2014_x86_64",
+        ":linux_aarch64": "manylinux2014_aarch64",
+        ":linux_x86_64": "manylinux2014_x86_64",
         "@platforms//os:osx": "macosx_11_0_arm64",
         "//conditions:default": "manylinux2014_x86_64",
     }),
@@ -40,5 +61,13 @@ py_wheel(
     summary = "yche KV store Python bindings (pybind11)",
     version = "0.1.0",
     deps = [":yche_kv_pkg"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "yche_kv_whl_stable",
+    srcs = [":yche_kv_whl"],
+    outs = ["dist/yche_kv.whl"],
+    cmd = "cp $< $@",
     visibility = ["//visibility:public"],
 )

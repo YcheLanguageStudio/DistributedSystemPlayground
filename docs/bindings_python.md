@@ -17,17 +17,27 @@ bazel build //bindings/python:_yche_kv
 
 ### Wheel（`.whl`）
 
-使用 **`rules_python`** 的 **`py_wheel`**（[`bindings/python/BUILD.bazel`](../bindings/python/BUILD.bazel) 中目标 **`yche_kv_whl`**）打 **二进制** 包：
+使用 **`rules_python`** 的 **`py_wheel`**（[`bindings/python/BUILD.bazel`](../bindings/python/BUILD.bazel) 中目标 **`yche_kv_whl`**）打 **二进制** 包。推荐同时构建 **`yche_kv_whl_stable`**：在固定相对路径下复制一份 **`dist/yche_kv.whl`**，避免只在日志里找带版本号的文件名。
 
 ```bash
-bazel build //bindings/python:yche_kv_whl
+bazel build //bindings/python:yche_kv_whl_stable
+# 等价于先构建 yche_kv_whl，再生成稳定路径；也可只构建 //bindings/python:yche_kv_whl
 ```
 
-产物路径见 Bazel 输出（本仓库默认 **`--symlink_prefix=build/`**，例如 **`build/bin/bindings/python/yche_kv-0.1.0-cp311-cp311-manylinux2014_x86_64.whl`**）。当前默认配置为 **CPython 3.11** 的 **`cp311`** 标签与 **`manylinux2014_x86_64`**（Linux）或 **`macosx_11_0_arm64`**（macOS）；与当前 **Python 工具链版本** 不一致时需调整 `python_tag` / `abi` / `platform`。
+**产物路径（本仓库 `symlink_prefix`）**
 
-安装示例：`pip install --force-reinstall build/bin/bindings/python/yche_kv-*.whl`（路径以实际构建输出为准）。
+| 构建方式 | 稳定 wheel | 带版本号的 wheel（日志里常见） |
+|----------|------------|--------------------------------|
+| 默认（未加 `--config=compile-commands`） | **`build/bin/bindings/python/dist/yche_kv.whl`** | **`build/bin/bindings/python/yche_kv-0.1.0-cp311-cp311-….whl`** |
+| 带 **`--config=compile-commands`** 的同一次输出布局 | **`build/bazel-bin/bindings/python/dist/yche_kv.whl`** | **`build/bazel-bin/bindings/python/yche_kv-….whl`** |
 
-根目录 [`build.sh`](../build.sh) 的 **`-p` / `--python`** 会同时构建 **`yche_kv`** 与 **`yche_kv_whl`**。
+若只看了 **`build/bin`**，而最近一次构建用了 **`compile-commands`** 配置，请到 **`build/bazel-bin`** 下找同名路径（或始终构建 **`yche_kv_whl_stable`** 后看 Bazel 打印的 **`Target ... up-to-date:`** 行）。
+
+当前默认配置为 **CPython 3.11** 的 **`cp311`** 标签；**Linux x86_64** 为 **`manylinux2014_x86_64`**，**Linux aarch64** 为 **`manylinux2014_aarch64`**，**macOS** 为 **`macosx_11_0_arm64`**。与当前 **Python 工具链版本** 不一致时需调整 `python_tag` / `abi` / `platform`。
+
+安装示例：`pip install --force-reinstall build/bin/bindings/python/dist/yche_kv.whl`（若使用 **`bazel-bin`** 前缀请把 **`build/bin`** 换成 **`build/bazel-bin`**）。
+
+根目录 [`build.sh`](../build.sh) 的 **`-p` / `--python`** 与 **`-w`** 会构建 **`//bindings/python:yche_kv_whl_stable`**。
 
 ## API 概要
 

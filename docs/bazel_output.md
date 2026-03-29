@@ -21,6 +21,8 @@
 | **`build/bin/`** | 当前构建配置下可执行文件与相关运行文件的便捷入口（例如 `build/bin/smoke/kv_smoke`）。 |
 | **`build/out/`** | 常指向本次配置下的 **`bazel-out`** 所代表的输出树（编译产物、对象文件等组织方式由 Bazel 管理）。 |
 | **`build/testlogs/`** | 测试运行的日志汇总入口。 |
+| **`build/coverage-html/`** | 运行 **[`tools/coverage.sh`](../tools/coverage.sh)** 时 **`genhtml`** 的默认输出目录（可用 **`COVERAGE_HTML_DIR`** 覆盖）。 |
+| **`build/bazel-out/`** 等 | 仅在使用 **`--config=compile-commands`** 刷新 **`compile_commands.json`** 时出现（**`--symlink_prefix=build/bazel-`**），供 hedron 解析输出树；日常 **`build/out/`** 仍对应普通构建的 out 链接。 |
 | **以工作区命名的链接** | 指向 **execroot**（执行构建时「挂载」源码与生成文件的根），用于调试路径问题。 |
 
 这些链接指向的是 **output base 内部**某棵输出树，**不要**把 `build/` 当成「唯一真相」去备份；清理 **`bazel clean`** 或切换配置后，重新构建会更新链接目标。
@@ -30,7 +32,7 @@
 未设置 `symlink_prefix` 时，习惯上会在仓库根看到 **`bazel-bin`**、**`bazel-out`**、**`bazel-testlogs`** 等。本仓库把它们收拢到 **`build/`** 下，含义不变：
 
 - 原 **`bazel-bin`** 一类「可运行产物」视图 → 本仓库中主要看 **`build/bin`**（以及文档中给出的具体目标路径说明）。
-- 原 **`bazel-out`** → 与 **`build/out`** 所链出的输出树概念一致（**hedron 生成 `compile_commands.json` 时会检查根目录的 `bazel-out`**，因此刷新命令使用单独的 `--config=compile-commands`，见 [IDE 与代码索引](ide_indexing.md)）。
+- 原 **`bazel-out`** → 与 **`build/out`** 所链出的输出树概念一致。**hedron** 刷新 **`compile_commands.json`** 时需要工作区内的 **`bazel-out`** 链接：本仓库在 **`--config=compile-commands`** 下使用 **`build/bazel-out`**（见 [IDE 与代码索引](ide_indexing.md)）。
 
 ## 4. Output base 里大致有什么（为何与 `build/` 不同）
 
@@ -44,7 +46,7 @@
 
 ## 5. 清理与迁移提示
 
-- 从「根目录一堆 `bazel-*`」迁到本仓库布局后，若残留旧链接，可 **`bazel clean`** 后再构建。
+- 从「根目录一堆 `bazel-*`」迁到本仓库布局后，若残留旧链接，可 **`bazel clean`** 后再构建。**`bazel clean` 不会删除**已不再由当前 `symlink_prefix` 管理的**孤儿符号链接**；若根目录仍能看到 **`bazel-bin` / `bazel-out` / `bazel-testlogs`** 等，可**手动删除**（确认无其它工具依赖后再删）。
 - 日常 **`git status`** 一般不应跟踪 `build/`（若未忽略，请把 `build/` 加入 `.gitignore`）；本仓库通过 **`build/`** 集中生成物视图，避免污染仓库根。
 
 更短的命令速查仍见 [build.md](build.md)。

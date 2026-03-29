@@ -3,7 +3,7 @@ name: Bazel KV brpc 样例
 overview: 基于 Bazel、C++17 的 KV 样例：src 放实现与对外 include（KV 核心 + 协程运行时薄适配层），tests 放 gtest 与测试用适配，smoke 放冒烟二进制；KV 后端优先用三方库（如 hiredis）访问 Redis；预留后续 pybind 模块目录与依赖边界。
 todos:
   - id: bazel-scaffold
-    content: MODULE.bazel + .bazelrc (C++17)，引入 googletest、brpc、hiredis（或 rules_foreign_cc）
+    content: MODULE.bazel + .bazelrc (C++17)；brpc（stub `local_path_override`）、hiredis（http_archive）；gtest 用 http_archive `com_google_googletest` + third_party/googletest.BUILD（Bazel 9 不用 BCR googletest）
     status: pending
   - id: src-kv-core
     content: src/include 公共 API + src/kv 实现（连接池、注入 Executor/Waiter、Redis 后端）
@@ -12,8 +12,8 @@ todos:
     content: src/adapters/brpc 薄适配（pthread 池 + bthread_yield），独立 cc_library
     status: pending
   - id: tests-gtest
-    content: tests/ 内 gtest、同步 test runtime 适配、对 kv_core 与可选 brpc 适配的用例
-    status: pending
+    content: tests/ 内 gtest（@com_google_googletest//:gtest_main）、test_runtime、kv_store_test + brpc_adapter_test（kv_brpc_adapter + bthread）
+    status: completed
   - id: smoke-binary
     content: smoke/ 冒烟 cc_binary（bthread 路径 + brpc 适配）
     status: pending
@@ -40,7 +40,7 @@ isProject: false
 
 ```text
 yche-distsys-playground/
-├── MODULE.bazel                 # bzlmod：gtest、brpc、hiredis（或 foreign_cc）
+├── MODULE.bazel                 # bzlmod：brpc、hiredis；gtest 为 http_archive com_google_googletest + third_party/googletest.BUILD
 ├── .bazelrc                     # build --cxxopt=-std=c++17（及常用 warning）
 ├── docs/
 │   └── design_kv.md
@@ -70,12 +70,12 @@ yche-distsys-playground/
 │           └── brpc_runtime.h   # init_kv_for_brpc(ip, port, ...) 声明
 │
 ├── tests/
-│   ├── BUILD.bazel
+│   ├── BUILD.bazel              # cc_test kv_store_test、brpc_adapter_test；py_test kv_store_py_test
 │   ├── support/
 │   │   ├── test_runtime.h       # 同步 executor + 同步 yield（文档 test_cache_adapter 语义）
 │   │   └── test_runtime.cpp
-│   ├── kv_store_test.cc         # 针对 //src/kv:kv_core + test_runtime，不链接 brpc
-│   └── brpc_adapter_test.cc     # 可选：依赖 brpc + kv_brpc_adapter，在 bthread 里打一次 get/set
+│   ├── kv_store_test.cc         # gtest：//src/kv:kv_core + test_runtime，不链接 brpc
+│   └── brpc_adapter_test.cc     # gtest：kv_brpc_adapter + stub bthread 内 get/set
 │
 ├── smoke/
 │   ├── BUILD.bazel
@@ -108,17 +108,23 @@ flowchart TB
   end
   kv_core["//src/kv:kv_core"]
   brpc_adapt["//src/adapters/brpc:kv_brpc_adapter"]
-  gtest["//tests:... cc_test"]
+  gtest_lib["@com_google_googletest//:gtest_main"]
+  kv_test["//tests:kv_store_test"]
+  brpc_test["//tests:brpc_adapter_test"]
   smoke["//smoke:kv_smoke"]
   py["//bindings/python:yche_kv future"]
   H1 --> kv_core
   H2 --> kv_core
   kv_core --> brpc_adapt
-  kv_core --> gtest
+  kv_core --> kv_test
+  gtest_lib --> kv_test
+  gtest_lib --> brpc_test
+  brpc_adapt --> brpc_test
   brpc_adapt --> smoke
-  brpc_adapt --> gtest
   kv_core --> py
 ```
+
+**GoogleTest**：C++ 测试依赖 **`@com_google_googletest//:gtest_main`**（非 `//external/googletest` BCR 模块），与 hiredis 一样由根模块 **`http_archive`** 提供。
 
 
 
@@ -147,6 +153,7 @@ flowchart TB
 ## 6. 风险与验收（不变更原则）
 
 - brpc 的 Bazel 集成仍以选定版本为准；protobuf 版本冲突用 `single_version_override`。
+- **Bazel 9 + GoogleTest**：不宜直接 `bazel_dep(googletest)`（BCR 包内 `BUILD.bazel` 仍用原生 `cc_*`）；本仓库用 **`http_archive` + `third_party/googletest.BUILD`**。
 - **验收**：`bazel test //tests/...`、`bazel run //smoke:kv_smoke`；有 Redis 时跑集成，无 Redis 时 tests 可走 in-memory fake（若实现 fake）。
 
 ---

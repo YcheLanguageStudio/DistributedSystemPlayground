@@ -1,0 +1,32 @@
+diff --git a/refresh.template.py b/refresh.template.py
+--- a/refresh.template.py
++++ b/refresh.template.py
+@@ -1281,17 +1281,24 @@ def _ensure_external_workspaces_link_exists():
+     is_windows = os.name == 'nt'
+     source = pathlib.Path('external')
+ 
+-    if not os.path.lexists('bazel-out'):
+-        log_error(">>> //bazel-out is missing. Please remove --symlink_prefix and --experimental_convenience_symlinks, so the workspace mirrors the compilation environment.")
++    # Prefer build/bazel-out (--symlink_prefix=build/bazel-) so the workspace root stays free of bazel-* links.
++    bazel_out_symlink = None
++    for candidate in ('build/bazel-out', 'bazel-out'):
++        if os.path.lexists(candidate):
++            bazel_out_symlink = candidate
++            break
++    if bazel_out_symlink is None:
++        log_error(">>> //bazel-out is missing (checked build/bazel-out and bazel-out). For this repo use `bazel ... --config=compile-commands`, or remove --symlink_prefix for the classic layout.")
+         # Crossref: https://github.com/hedronvision/bazel-compile-commands-extractor/issues/14 https://github.com/hedronvision/bazel-compile-commands-extractor/pull/65
+         # Note: experimental_no_product_name_out_symlink is now enabled by default. See https://github.com/bazelbuild/bazel/commit/06bd3e8c0cd390f077303be682e9dec7baf17af2
+         sys.exit(1)
+ 
+     # Traverse into output_base via bazel-out, keeping the workspace position-independent, so it can be moved without rerunning
+-    dest = pathlib.Path('bazel-out/../../../external')
++    bazel_out_path = pathlib.Path(bazel_out_symlink)
++    dest = bazel_out_path / '..' / '..' / '..' / 'external'
+     if is_windows:
+         # On Windows, unfortunately, bazel-out is a junction, and accessing .. of a junction brings you back out the way you came. So we have to resolve bazel-out first. Not position-independent, but I think the best we can do
+-        dest = (pathlib.Path('bazel-out').resolve()/'../../../external').resolve()
++        dest = (bazel_out_path.resolve()/'..'/'..'/'..'/'external').resolve()
+ 
+     # Handle problem cases where //external exists
+     if os.path.lexists(source): # MIN_PY=3.12: use source.exists(follow_symlinks=False), here and elsewhere.

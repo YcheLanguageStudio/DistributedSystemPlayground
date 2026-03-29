@@ -12,6 +12,7 @@ DEFAULT_TARGETS=(
 )
 
 WITH_PYTHON=0
+WITH_WHEEL=0
 WITH_BUILD_TESTS=0
 RUN_TESTS=0
 RUN_SMOKE=0
@@ -25,7 +26,8 @@ Usage: ./build.sh [options]
 
 Options:
   -h, --help          Show this help
-  -p, --python        Also build //bindings/python:yche_kv and //bindings/python:yche_kv_whl (.whl)
+  -p, --python        Also build //bindings/python:yche_kv and //bindings/python:yche_kv_whl_stable (.whl)
+  -w, --wheel, --whl Also build //bindings/python:yche_kv_whl_stable (.whl for pip install)
   -b, --build-tests   Also build C++/Python test and smoke binaries (does not run them)
   -t, --test          Run bazel test //tests/...
   -s, --smoke         Run //smoke:kv_smoke and //smoke:kv_smoke_py
@@ -36,6 +38,8 @@ Environment:
 
 Examples:
   ./build.sh
+  ./build.sh -w              # default targets + .whl (transitively builds extension)
+  ./build.sh -p              # Python package + .whl (same as before)
   ./build.sh -p -b
   ./build.sh -t
   ./build.sh -p -t -s
@@ -51,6 +55,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p | --python)
       WITH_PYTHON=1
+      ;;
+    -w | --wheel | --whl)
+      WITH_WHEEL=1
       ;;
     -b | --build-tests)
       WITH_BUILD_TESTS=1
@@ -82,14 +89,15 @@ fi
 
 BUILD_TARGETS=("${DEFAULT_TARGETS[@]}")
 if [[ "$WITH_PYTHON" -eq 1 ]]; then
-  BUILD_TARGETS+=(
-    "//bindings/python:yche_kv"
-    "//bindings/python:yche_kv_whl"
-  )
+  BUILD_TARGETS+=("//bindings/python:yche_kv")
+fi
+if [[ "$WITH_PYTHON" -eq 1 ]] || [[ "$WITH_WHEEL" -eq 1 ]]; then
+  BUILD_TARGETS+=("//bindings/python:yche_kv_whl_stable")
 fi
 if [[ "$WITH_BUILD_TESTS" -eq 1 ]]; then
   BUILD_TARGETS+=(
     "//tests:kv_store_test"
+    "//tests:brpc_adapter_test"
     "//tests:kv_store_py_test"
     "//smoke:kv_smoke"
     "//smoke:kv_smoke_py"
@@ -98,6 +106,13 @@ fi
 
 echo "+ $BAZEL build ${BUILD_TARGETS[*]}"
 $BAZEL build "${BUILD_TARGETS[@]}"
+
+# compile_commands.json uses -Iexternal/+http_archive+hiredis; clangd needs a root //external link.
+# Same layout as hedron's refresh_compile_commands (see docs/ide_indexing.md).
+if [[ ! -e external ]] && [[ -L build/bazel-out ]]; then
+  echo "+ ln -sfn build/bazel-out/../../../external external"
+  ln -sfn build/bazel-out/../../../external external
+fi
 
 if [[ "$RUN_TESTS" -eq 1 ]]; then
   echo "+ $BAZEL test //tests/..."

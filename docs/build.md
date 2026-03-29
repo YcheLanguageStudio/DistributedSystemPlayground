@@ -10,13 +10,14 @@
 
 | 选项 | 含义 |
 |------|------|
-| **`-p` / `--python`** | 额外构建 **`//bindings/python:yche_kv`** 与 **`//bindings/python:yche_kv_whl`**（`.whl`） |
+| **`-p` / `--python`** | 额外构建 **`//bindings/python:yche_kv`** 与 **`//bindings/python:yche_kv_whl_stable`**（可导入包 + **`.whl`**） |
+| **`-w` / `--wheel` / `--whl`** | 仅额外构建 **`//bindings/python:yche_kv_whl_stable`**（**wheel**；扩展模块会作为依赖被构建） |
 | **`-b` / `--build-tests`** | 额外构建 C++/Python 单测与冒烟二进制（不执行） |
 | **`-t` / `--test`** | **`bazel test //tests/...`** |
 | **`-s` / `--smoke`** | **`bazel run //smoke:kv_smoke`** 与 **`//smoke:kv_smoke_py`** |
 | **`-a` / `--all`** | 构建上述全部目标后，再跑测试与冒烟 |
 
-环境变量 **`BAZEL`** 可指向 **Bazelisk** 等可执行文件。示例：`./build.sh -p -b`、`./build.sh --all`。
+环境变量 **`BAZEL`** 可指向 **Bazelisk** 等可执行文件。示例：`./build.sh -p -b`、`./build.sh -w`（只要 wheel）、`./build.sh --all`。
 
 ## 依赖与环境
 
@@ -50,7 +51,7 @@
   bazel run --config=compile-commands //:refresh_compile_commands
   ```
 
-  **说明**：生成器会检查仓库根目录下的 **`bazel-out`** 符号链接。日常构建使用 [`.bazelrc`](../.bazelrc) 里的 `--symlink_prefix=build/`，因此刷新时请加上 **`--config=compile-commands`**（临时改用 `bazel-*` 链接布局）。也可用上游目标 `bazel run --config=compile-commands @hedron_compile_commands//:refresh_all`（同样需该 config）。
+  **说明**：生成器需要工作区内存在名为 **`bazel-out`** 的便捷链接。日常构建使用 **`--symlink_prefix=build/`**，因此刷新时请加上 **`--config=compile-commands`**：本仓库在该 config 下使用 **`--symlink_prefix=build/bazel-`**，链接出现在 **`build/bazel-out`** 等路径（不再在仓库根生成 **`bazel-*`**）。仓库对 hedron 打了补丁以识别 **`build/bazel-out`**。也可用上游目标 `bazel run --config=compile-commands @hedron_compile_commands//:refresh_all`（同样需该 config；若上游未合入相同逻辑，需有根目录 **`bazel-out`**）。
 
   生成的 `compile_commands.json` 已在 [`.gitignore`](../.gitignore) 中忽略；需要提交时可用 `git add -f compile_commands.json`。
 
@@ -63,7 +64,7 @@
 bazel coverage --config=coverage //tests:kv_store_test
 ```
 
-也可使用包装脚本：在 **`--config=coverage`** 与 **`GCOV`** 配对之外，成功结束后会**自动生成** **`./coverage-html/index.html`**（需 **`lcov`**；不需要时用 **`SKIP_COVERAGE_HTML=1`**）。
+也可使用包装脚本：在 **`--config=coverage`** 与 **`GCOV`** 配对之外，成功结束后会**自动生成** **`build/coverage-html/index.html`**（需 **`lcov`**；不需要时用 **`SKIP_COVERAGE_HTML=1`**）。
 
 ```bash
 chmod +x tools/coverage.sh   # 仅需一次
@@ -76,7 +77,7 @@ chmod +x tools/coverage.sh   # 仅需一次
 GCOV=/usr/bin/x86_64-linux-gnu-gcov-9 bazel coverage --config=coverage //tests:kv_store_test
 ```
 
-详见 [coverage.md](coverage.md)。合并后的 lcov 路径见日志中的 **`INFO: LCOV coverage report is located at ...`**；**`./tools/coverage.sh`** 会在 Bazel 结束后生成 **`coverage-html/index.html`**（纯手打 **`bazel coverage`** 时则需自行 **`genhtml`**，见 [coverage.md](coverage.md)）。
+详见 [coverage.md](coverage.md)。合并后的 lcov 路径见日志中的 **`INFO: LCOV coverage report is located at ...`**；**`./tools/coverage.sh`** 会在 Bazel 结束后生成 **`build/coverage-html/index.html`**（纯手打 **`bazel coverage`** 时则需自行 **`genhtml`**，见 [coverage.md](coverage.md)）。
 
 ## 常用命令（速查）
 
@@ -96,15 +97,16 @@ bazel run //smoke:kv_smoke
 
 ## 运行单元测试（UT）
 
-单元测试在 [`tests/`](../tests/) 下：**C++** 为 **`cc_test`**（**`//tests:kv_store_test`**）；**Python** 为 **`py_test`**（**`//tests:kv_store_py_test`**，`unittest` + **`yche_kv`**，场景与 C++ 对齐）。详见 [bindings_python.md](bindings_python.md)。
+单元测试在 [`tests/`](../tests/) 下：**C++** 为 **GoogleTest** 的 **`cc_test`**（**`//tests:kv_store_test`**、`//tests:brpc_adapter_test`）；**Python** 为 **`py_test`**（**`//tests:kv_store_py_test`**，`unittest` + **`yche_kv`**，场景与 `kv_store_test` 对齐）。详见 [bindings_python.md](bindings_python.md)。
 
 在**仓库根目录**执行：
 
 ```bash
 cd /path/to/yche-distsys-playground
 
-# 只跑 KV 单测目标（推荐日常）
+# 只跑部分 KV 单测（推荐日常）
 bazel test //tests:kv_store_test
+bazel test //tests:brpc_adapter_test
 bazel test //tests:kv_store_py_test
 
 # 跑 tests 包下全部测试（cc_test + py_test）
@@ -117,9 +119,9 @@ bazel test //tests:kv_store_test --test_output=all
 bazel test //tests:kv_store_test --test_summary=detailed
 ```
 
-**如何判断通过**：命令退出码为 **0**，且终端出现类似 `//tests:kv_store_test PASSED`。失败时 Bazel 会打印失败原因并返回非 0。
+**如何判断通过**：命令退出码为 **0**，且终端出现各目标 **`PASSED`**。失败时 Bazel 会打印失败原因并返回非 0。
 
-**说明**：单测源码为 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc)、[`tests/kv_store_py_test.py`](../tests/kv_store_py_test.py)；辅助桩为 [`tests/support/test_runtime.*`](../tests/support/test_runtime.h)（仅 C++）。
+**说明**：C++ 单测源码为 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc)、[`tests/brpc_adapter_test.cc`](../tests/brpc_adapter_test.cc)、[`tests/kv_store_py_test.py`](../tests/kv_store_py_test.py)；辅助桩为 [`tests/support/test_runtime.*`](../tests/support/test_runtime.h)（仅 C++、供 `kv_store_test`）。
 
 ## 运行冒烟（smoke）
 
@@ -153,12 +155,18 @@ bazel build //smoke:kv_smoke
 
 ## 测试说明（GoogleTest）
 
-在 **Bazel 9** 下，BCR 中部分 `googletest` 发行包仍使用已移除的 **原生 `cc_*` 规则**，与本仓库的 `rules_cc` 组合可能分析失败。当前 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc) 使用 **`assert` 的轻量单测**；后续可在上游 `googletest` 与 Bazel 9 完全对齐后恢复 gtest。
+C++ 单测使用 **GoogleTest v1.17.0**，通过根目录 [`MODULE.bazel`](../MODULE.bazel) 的 **`http_archive`（仓库名 `com_google_googletest`）** 拉取官方 tarball，并由 [`third_party/googletest.BUILD`](../third_party/googletest.BUILD) 以 **`rules_cc` 的 `cc_library`** 构建 `:gtest` / `:gtest_main`。这样可在 **Bazel 9** 下工作；**未**使用 BCR 的 `bazel_dep(googletest)`，因其 `BUILD.bazel` 仍调用已移除的原生 `cc_*` 规则。
+
+- [`tests/kv_store_test.cc`](../tests/kv_store_test.cc) → `bazel test //tests:kv_store_test`（`@com_google_googletest//:gtest_main` + `test_runtime` + `//src/kv:kv_core`）。
+- [`tests/brpc_adapter_test.cc`](../tests/brpc_adapter_test.cc) → `bazel test //tests:brpc_adapter_test`（同上 gtest + `//src/adapters/brpc:kv_brpc_adapter`）。
+
+运行全部测试：`bazel test //tests/...`。
 
 ## 第三方与校验
 
 - **hiredis**：`MODULE.bazel` 中固定 **v1.2.0** 的 `sha256`；若上游 tarball 变更导致校验失败，需更新 `sha256` 与 `strip_prefix`。
 - **hiredis BUILD**：[`third_party/hiredis.BUILD`](../third_party/hiredis.BUILD) 使用 `rules_cc` 的 `cc_library`，并为 `async.c` 所 `#include "dict.c"` 声明 **`textual_hdrs`**。
+- **GoogleTest**：`MODULE.bazel` 中 **`com_google_googletest`** 的 **v1.17.0** 发布包 `sha256` 与 `strip_prefix`；自定义构建文件为 [`third_party/googletest.BUILD`](../third_party/googletest.BUILD)。
 
 ## Bazel 安装提示
 

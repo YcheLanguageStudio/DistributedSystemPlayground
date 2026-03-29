@@ -46,7 +46,7 @@
 | **`--instrumentation_filter=...`** | 限制**插桩范围**（本仓库为 `//src/kv` 与 `//tests`）。 |
 | **`--combined_report=lcov`** | 测试结束后**合并**为 lcov 格式报告；终端日志里会出现 **`LCOV coverage report is located at ...`**，指向生成文件路径。 |
 
-推荐使用仓库脚本 [`tools/coverage.sh`](../tools/coverage.sh)：在**未**设置 **`GCOV`** 时，会按 **`${CC:-gcc}`** 推导配套的 **`gcov`**；在 **`bazel coverage`** 成功后**自动**用 **`genhtml`** 生成 **`./coverage-html/index.html`**（依赖系统已安装 **lcov**）。可用 **`COVERAGE_HTML_DIR`** 改输出目录，**`SKIP_COVERAGE_HTML=1`** 跳过 HTML（例如无 lcov 的 CI）。
+推荐使用仓库脚本 [`tools/coverage.sh`](../tools/coverage.sh)：在**未**设置 **`GCOV`** 时，会按 **`${CC:-gcc}`** 推导配套的 **`gcov`**；在 **`bazel coverage`** 成功后**自动**用 **`genhtml`** 生成 **`build/coverage-html/index.html`**（依赖系统已安装 **lcov**）。可用 **`COVERAGE_HTML_DIR`** 改输出目录，**`SKIP_COVERAGE_HTML=1`** 跳过 HTML（例如无 lcov 的 CI）。
 
 ## 3. 沙箱机制（sandbox）与覆盖率的关系
 
@@ -79,7 +79,7 @@ chmod +x tools/coverage.sh   # 仅需一次
 bazel coverage --config=coverage //tests:kv_store_test
 ```
 
-使用 **[`tools/coverage.sh`](../tools/coverage.sh)** 时，成功结束后会在仓库根目录（或 **`COVERAGE_HTML_DIR`**）生成 **`index.html`**，无需再跑其它脚本。若**直接**调用 **`bazel coverage`**，则只会得到 lcov **`.dat`**，见下文 **「HTML 报告（index.html）」**。
+使用 **[`tools/coverage.sh`](../tools/coverage.sh)** 时，成功结束后会在 **`build/coverage-html/`**（或 **`COVERAGE_HTML_DIR`**）生成 **`index.html`**，无需再跑其它脚本。若**直接**调用 **`bazel coverage`**，则只会得到 lcov **`.dat`**，见下文 **「HTML 报告（index.html）」**。
 
 ### 日志里的两行 `LCOV coverage report` 与 `Executed 0 out of 1`
 
@@ -120,11 +120,11 @@ GCOV=/usr/bin/x86_64-linux-gnu-gcov-9 bazel coverage --config=coverage //tests:k
 ## 7. HTML 报告（`index.html`）在哪里
 
 **Bazel 本身不生成 `index.html`。**  
-`--combined_report=lcov` 产出的是 **lcov tracefile**（**`_coverage_report.dat`**）；**[`tools/coverage.sh`](../tools/coverage.sh)** 在 **`bazel coverage`** 成功后，会调用 **`genhtml`** 写入默认目录 **`./coverage-html/`**（需已安装 **lcov**，Ubuntu：`sudo apt install lcov`）。
+`--combined_report=lcov` 产出的是 **lcov tracefile**（**`_coverage_report.dat`**）；**[`tools/coverage.sh`](../tools/coverage.sh)** 在 **`bazel coverage`** 成功后，会调用 **`genhtml`** 写入默认目录 **`build/coverage-html/`**（需已安装 **lcov**，Ubuntu：`sudo apt install lcov`）。
 
 | 环境变量 | 含义 |
 |----------|------|
-| **`COVERAGE_HTML_DIR`** | HTML 输出目录（默认 **`coverage-html`**） |
+| **`COVERAGE_HTML_DIR`** | HTML 输出目录（默认 **`build/coverage-html`**） |
 | **`SKIP_COVERAGE_HTML=1`** | 只跑 **`bazel coverage`**，不执行 **`genhtml`**（例如 CI 未装 lcov） |
 | **`COVERAGE_NOCACHE=1`** | 传入 **`--nocache_test_results`**，强制重跑测试（避免「Executed 0 out of 1」时沿用旧覆盖率） |
 
@@ -138,7 +138,7 @@ $(bazel info execution_root)/bazel-out/_coverage/_coverage_report.dat
 
 ```bash
 exec_root="$(bazel info execution_root)"
-genhtml -o coverage-html "${exec_root}/bazel-out/_coverage/_coverage_report.dat"
+genhtml -o build/coverage-html "${exec_root}/bazel-out/_coverage/_coverage_report.dat"
 ```
 
 **说明**：若从未成功跑过 coverage，**`_coverage_report.dat`** 不存在，脚本会报错。若只有 **`_baseline_report.dat`** 而没有合并后的 **`_coverage_report.dat`**，请先确认测试与 coverage 已成功完成（见日志中的 **`INFO: LCOV coverage report`**）。

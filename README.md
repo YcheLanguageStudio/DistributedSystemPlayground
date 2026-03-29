@@ -29,7 +29,10 @@ Bazel 目标：`//src/kv:kv_core`、`//src/adapters/brpc:kv_brpc_adapter`。
 
 ## `tests/` 下验证的用例
 
-**C++**：目标 **`//tests:kv_store_test`**（[`tests/kv_store_test.cc`](tests/kv_store_test.cc)），使用 **内存后端** 与 [`tests/support/test_runtime`](tests/support/test_runtime.h)（同步执行 `Executor` + 同步 `WaitCallback`，不链接 brpc）。
+**C++（GoogleTest）**：
+
+- **`//tests:kv_store_test`**（[`tests/kv_store_test.cc`](tests/kv_store_test.cc)）：**内存后端** + [`tests/support/test_runtime`](tests/support/test_runtime.h)（同步 `Executor` / `WaitCallback`），**不**链接 brpc。
+- **`//tests:brpc_adapter_test`**（[`tests/brpc_adapter_test.cc`](tests/brpc_adapter_test.cc)）：**内存后端** + [`InstallBrpcRuntime`](src/adapters/brpc/brpc_runtime.h)，在 **stub `bthread`** 中执行一次 `set`/`get`（依赖 `//src/adapters/brpc:kv_brpc_adapter` 与 `@brpc`）。
 
 **Python**：目标 **`//tests:kv_store_py_test`**（[`tests/kv_store_py_test.py`](tests/kv_store_py_test.py)），`unittest` 场景与 C++ 单测对齐，调用 **`yche_kv.install_test_runtime()`**。
 
@@ -39,7 +42,7 @@ Bazel 目标：`//src/kv:kv_core`、`//src/adapters/brpc:kv_brpc_adapter`。
 | 键不存在 | `get` 未命中，`last_error == KvError::KEY_NOT_FOUND`。 |
 | 未安装运行时 | 未调用 `InstallTestRuntime` 时 `get` 失败，`last_error == KvError::UNKNOWN`。 |
 
-说明：当前未使用 GoogleTest（见 [docs/build.md](docs/build.md) 中「测试说明」），用 **`assert`** 做轻量断言；后续可改为 gtest。
+GoogleTest 通过 **`MODULE.bazel` 中的 `http_archive`（`com_google_googletest`）** 与 [`third_party/googletest.BUILD`](third_party/googletest.BUILD) 集成（避免 BCR 包在 Bazel 9 下仍使用已移除的原生 `cc_*` 规则）；详见 [docs/build.md](docs/build.md)「测试说明」。
 
 ---
 
@@ -55,8 +58,8 @@ bazel build //src/kv:kv_core
 bazel build //src/adapters/brpc:kv_brpc_adapter
 
 # 测试与冒烟（C++ / Python）
-bazel build //tests:kv_store_test //smoke:kv_smoke
-bazel build //bindings/python:yche_kv //bindings/python:yche_kv_whl //tests:kv_store_py_test //smoke:kv_smoke_py
+bazel build //tests:kv_store_test //tests:brpc_adapter_test //smoke:kv_smoke
+bazel build //bindings/python:yche_kv //bindings/python:yche_kv_whl_stable //tests:kv_store_py_test //smoke:kv_smoke_py
 ```
 
 首次构建需联网拉取 **hiredis** 与 BCR 模块；依赖与 `MODULE.bazel.lock` 说明见 [docs/build.md](docs/build.md)。可选使用根目录 **[`build.sh`](build.sh)** 一键组合构建 / 测试 / 冒烟（见 [docs/build.md](docs/build.md) 中「便捷脚本」）。
@@ -86,7 +89,7 @@ bazel run //smoke:kv_smoke_py
 ## 当前已验证的功能
 
 - **KV 语义**：在注入 `Executor` + `WaitCallback` 的前提下，`KvStore::get` / `set` 与内存后端、连接池协作正确。
-- **单测路径**：同步 `test_runtime` 下内存读写、缺失键、未安装运行时三种行为符合预期。
+- **单测路径**：GoogleTest 下 `//tests:kv_store_test`（同步 `test_runtime`）与 `//tests:brpc_adapter_test`（`InstallBrpcRuntime` + bthread）覆盖内存读写、缺失键、未安装运行时及适配层在 bthread 中的读写。
 - **Python 绑定**：`yche_kv`（pybind11）与 C++ 单测场景一致的 **`//tests:kv_store_py_test`**，以及 **`//smoke:kv_smoke_py`**。
 - **冒烟路径**：`InstallBrpcRuntime` + **stub `bthread`**（`bthread_start_background` / `bthread_join` / `bthread_yield`）下，在子「bthread」中完成一次 `set`/`get` 校验（内存后端）。
 - **未作为默认 CI 验证的内容**：真实 Redis 进程、完整 **Apache brpc** 源码替换（需自行改 `MODULE.bazel` 的 `local_path_override` 并满足 brpc 的依赖与 registry）。

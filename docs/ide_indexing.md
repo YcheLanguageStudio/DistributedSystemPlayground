@@ -31,7 +31,7 @@ bazel run --config=compile-commands //:refresh_compile_commands
 ```
 
 **为何需要 `--config=compile-commands`？**  
-日常构建使用 [`.bazelrc`](../.bazelrc) 中的 **`--symlink_prefix=build/`**，生成器仍期望在根目录看到经典布局下的 **`bazel-out`** 链接；该 config 会临时改用 **`bazel-`** 前缀，与 [hedron 文档](https://github.com/hedronvision/bazel-compile-commands-extractor) 行为一致。
+日常构建使用 **`--symlink_prefix=build/`**，而 hedron 需要工作区内存在 **`bazel-out`** 这一便捷链接。该 config 使用 **`--symlink_prefix=build/bazel-`**，在 **`build/bazel-out`**（及 **`build/bazel-bin`** 等）下创建链接，避免在仓库根目录出现 **`bazel-*`**；本仓库对 hedron 打了补丁以识别 **`build/bazel-out`**（与 [hedron 上游](https://github.com/hedronvision/bazel-compile-commands-extractor) 默认「根目录 `bazel-out`」略有不同）。
 
 生成结果：**仓库根目录的 `compile_commands.json`**（体积可能较大，默认在 [`.gitignore`](../.gitignore) 中忽略）。
 
@@ -77,6 +77,7 @@ bazel run --config=compile-commands //:refresh_compile_commands
 | 新克隆仓库就有红线 | **`compile_commands.json` 在 [`.gitignore`](../.gitignore) 里**，不会随 Git 提交；未执行 **`bazel run --config=compile-commands //:refresh_compile_commands`** 则根目录没有该文件，clangd 只能靠 **[`.clangd`](../.clangd)**，部分场景仍异常。 |
 | 有 `compile_commands.json` 仍报错 | **工作区根目录不是仓库根**（多文件夹工作区时 `compile_commands` 不在当前根）；或 **未装 clangd 扩展** / 仍由 **微软 C/C++** 用错误配置做诊断。 |
 | 仅头文件红线 | 数据库里对 **`store.h`** 的条目应带 **`-Isrc/kv/include`**；若过期，**重新生成** `compile_commands.json`。 |
+| **`#include <gtest/gtest.h>`** 红线或 Cursor 无法索引 gtest | 需存在根目录 **`external`**  symlink（见 [`build.sh`](../build.sh) / 刷新 compile_commands），且 [`.gitignore`](../.gitignore) 对 **`external/+http_archive+com_google_googletest/**`** 为**不忽略**，否则遵循 gitignore 的索引器看不到头文件。刷新数据库后 **重启 clangd**。 |
 
 本仓库在 **[`.vscode/settings.json`](../.vscode/settings.json)** 中为 clangd 指定 **`--compile-commands-dir=${workspaceFolder}`**，并为 **`C_Cpp.default.compileCommands`** 指向根目录的 **`compile_commands.json`**，避免 Cursor/VS Code 找不到数据库。生成数据库后执行 **Clangd: Restart language server**。
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs `bazel coverage --config=coverage`, then generates HTML under ./coverage-html/ (genhtml).
+# Runs `bazel coverage --config=coverage`, then generates HTML under build/coverage-html/ (genhtml).
 # - GCOV: matches ${CC:-gcc} when unset (see docs/coverage.md).
-# - COVERAGE_HTML_DIR: output directory for HTML (default: coverage-html).
+# - COVERAGE_HTML_DIR: output directory for HTML (default: build/coverage-html).
 # - SKIP_COVERAGE_HTML=1: skip genhtml (e.g. CI without lcov).
 # - COVERAGE_NOCACHE=1: pass --nocache_test_results so tests re-run (avoids stale coverage when Bazel shows "Executed 0 out of 1").
 set -euo pipefail
@@ -33,7 +33,7 @@ if ! command -v genhtml >/dev/null 2>&1; then
   exit 1
 fi
 
-OUT_DIR="${COVERAGE_HTML_DIR:-coverage-html}"
+OUT_DIR="${COVERAGE_HTML_DIR:-build/coverage-html}"
 ROOT="$(bazel info execution_root)"
 REPORT="${ROOT}/bazel-out/_coverage/_coverage_report.dat"
 
