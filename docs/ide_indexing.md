@@ -67,3 +67,31 @@ bazel run --config=compile-commands //:refresh_compile_commands
 - **`.clangd`** 在无数据库或缺项时提供最小 include，属于**补充**，不能替代长期维护的 **compile_commands**。
 
 更多构建命令速查见 [build.md](build.md)；Bazel 输出目录含义见 [bazel_output.md](bazel_output.md)。
+
+## 8. 排错：`#include "yche/kv/..."` 报 file not found
+
+这类路径**不是**磁盘绝对路径，而是相对 **include 根**（本仓库为 **`src/kv/include`**）的路径。要让语言服务识别，必须在「编译参数」里出现 **`-I src/kv/include`**（或等价绝对路径）。
+
+| 现象 | 常见原因 |
+|------|----------|
+| 新克隆仓库就有红线 | **`compile_commands.json` 在 [`.gitignore`](../.gitignore) 里**，不会随 Git 提交；未执行 **`bazel run --config=compile-commands //:refresh_compile_commands`** 则根目录没有该文件，clangd 只能靠 **[`.clangd`](../.clangd)**，部分场景仍异常。 |
+| 有 `compile_commands.json` 仍报错 | **工作区根目录不是仓库根**（多文件夹工作区时 `compile_commands` 不在当前根）；或 **未装 clangd 扩展** / 仍由 **微软 C/C++** 用错误配置做诊断。 |
+| 仅头文件红线 | 数据库里对 **`store.h`** 的条目应带 **`-Isrc/kv/include`**；若过期，**重新生成** `compile_commands.json`。 |
+
+本仓库在 **[`.vscode/settings.json`](../.vscode/settings.json)** 中为 clangd 指定 **`--compile-commands-dir=${workspaceFolder}`**，并为 **`C_Cpp.default.compileCommands`** 指向根目录的 **`compile_commands.json`**，避免 Cursor/VS Code 找不到数据库。生成数据库后执行 **Clangd: Restart language server**。
+
+更多见上文 **「让 clangd 重新加载」**。
+
+## 9. 索引修复记录（仓库内已落地的变更）
+
+以下变更用于解决 **`#include "yche/kv/..."`** 等在 IDE 中「找不到头文件」、跳转/补全异常等问题，**不改变**源码里的 include 写法；仍需在本地生成 **`compile_commands.json`**（见上文第 3 节）。
+
+| 变更 | 文件 | 作用 |
+|------|------|------|
+| **clangd 显式使用仓库根的数据库** | [`.vscode/settings.json`](../.vscode/settings.json) | 设置 **`clangd.arguments`**：`--compile-commands-dir=${workspaceFolder}`，避免多根工作区或未自动探测到根目录 **`compile_commands.json`** 时 clangd 落空。 |
+| **微软 C/C++ 扩展默认使用同一数据库** | [`.vscode/settings.json`](../.vscode/settings.json) | **`C_Cpp.default.compileCommands`** 指向 **`${workspaceFolder}/compile_commands.json`**，与 clangd 共用一套编译参数，减少与 Bazel 不一致的 IntelliSense。 |
+| **IntelliSense 配置绑定 compile_commands** | [`.vscode/c_cpp_properties.json`](../.vscode/c_cpp_properties.json) | 单配置 **`compileCommands`** 指向根目录 **`compile_commands.json`**，避免依赖手工维护 **`includePath`**。 |
+| **无数据库时的 include 兜底**（既有） | [`.clangd`](../.clangd) | **`CompileFlags.Add`** 含 **`-I src/kv/include`** 等；在未生成 **`compile_commands.json`** 或个别文件无条目时，仍尽量解析 **`yche/kv/...`**。 |
+| **排错说明**（既有） | 本文第 8 节 | 归纳「未生成数据库 / 工作区根不对 / 头文件条目过期」等场景与处理。 |
+
+**说明**：**`compile_commands.json`** 仍由 [`.gitignore`](../.gitignore) 忽略、不随仓库提交；新克隆后须执行 **`bazel run --config=compile-commands //:refresh_compile_commands`**，再 **重启 clangd** 或 **Reload Window**。
