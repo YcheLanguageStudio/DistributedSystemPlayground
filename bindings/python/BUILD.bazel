@@ -1,0 +1,44 @@
+load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:packaging.bzl", "py_package", "py_wheel")
+
+pybind_extension(
+    name = "_yche_kv",
+    srcs = ["kv_store_module.cpp"],
+    visibility = ["//visibility:public"],
+    deps = ["//src/kv:kv_core"],
+)
+
+py_library(
+    name = "yche_kv",
+    srcs = ["yche_kv/__init__.py"],
+    data = ["_yche_kv"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+# Files for the wheel (py_library data deps + sources); empty packages = include all.
+py_package(
+    name = "yche_kv_pkg",
+    deps = [":yche_kv"],
+)
+
+# Binary wheel: CPython 3.11 + manylinux x86_64 (matches default rules_python toolchain).
+# For other OS/ABI, build on that platform or add platform selects.
+py_wheel(
+    name = "yche_kv_whl",
+    abi = "cp311",
+    distribution = "yche_kv",
+    platform = select({
+        "@platforms//os:linux": "manylinux2014_x86_64",
+        "@platforms//os:osx": "macosx_11_0_arm64",
+        "//conditions:default": "manylinux2014_x86_64",
+    }),
+    python_requires = ">=3.11",
+    python_tag = "cp311",
+    strip_path_prefixes = ["bindings/python"],
+    summary = "yche KV store Python bindings (pybind11)",
+    version = "0.1.0",
+    deps = [":yche_kv_pkg"],
+    visibility = ["//visibility:public"],
+)

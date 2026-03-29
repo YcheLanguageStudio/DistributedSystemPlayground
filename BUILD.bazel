@@ -5,7 +5,11 @@ refresh_compile_commands(
     targets = [
         "//src/kv:kv_core",
         "//src/adapters/brpc:kv_brpc_adapter",
+        "//bindings/python:_yche_kv",
+        "//bindings/python:yche_kv_whl",
         "//tests:kv_store_test",
+        "//tests:kv_store_py_test",
         "//smoke:kv_smoke",
+        "//smoke:kv_smoke_py",
     ],
 )

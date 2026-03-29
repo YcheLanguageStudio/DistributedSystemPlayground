@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_python//python:py_test.bzl", "py_test")
 
 cc_library(
     name = "test_runtime",
@@ -17,4 +18,12 @@ cc_test(
         ":test_runtime",
         "//src/kv:kv_core",
     ],
+)
+
+py_test(
+    name = "kv_store_py_test",
+    size = "small",
+    srcs = ["kv_store_py_test.py"],
+    main = "kv_store_py_test.py",
+    deps = ["//bindings/python:yche_kv"],
 )

@@ -4,6 +4,20 @@
 
 **专题文档**：输出目录释义见 [bazel_output.md](bazel_output.md)；覆盖率原理与操作见 [coverage.md](coverage.md)；clangd / 编译数据库与 Cursor 索引见 [ide_indexing.md](ide_indexing.md)。
 
+### 便捷脚本 [`build.sh`](../build.sh)
+
+在仓库根目录执行，默认 **`bazel build //src/kv:kv_core //src/adapters/brpc:kv_brpc_adapter`**。可选参数：
+
+| 选项 | 含义 |
+|------|------|
+| **`-p` / `--python`** | 额外构建 **`//bindings/python:yche_kv`** 与 **`//bindings/python:yche_kv_whl`**（`.whl`） |
+| **`-b` / `--build-tests`** | 额外构建 C++/Python 单测与冒烟二进制（不执行） |
+| **`-t` / `--test`** | **`bazel test //tests/...`** |
+| **`-s` / `--smoke`** | **`bazel run //smoke:kv_smoke`** 与 **`//smoke:kv_smoke_py`** |
+| **`-a` / `--all`** | 构建上述全部目标后，再跑测试与冒烟 |
+
+环境变量 **`BAZEL`** 可指向 **Bazelisk** 等可执行文件。示例：`./build.sh -p -b`、`./build.sh --all`。
+
 ## 依赖与环境
 
 | 项目 | 说明 |
@@ -82,7 +96,7 @@ bazel run //smoke:kv_smoke
 
 ## 运行单元测试（UT）
 
-单元测试在 [`tests/`](../tests/) 下，由 Bazel 的 **`cc_test`** 目标驱动；当前用例为 **`//tests:kv_store_test`**（内存后端 + 同步 `test_runtime` 适配，不依赖 Redis / 真实 brpc）。
+单元测试在 [`tests/`](../tests/) 下：**C++** 为 **`cc_test`**（**`//tests:kv_store_test`**）；**Python** 为 **`py_test`**（**`//tests:kv_store_py_test`**，`unittest` + **`yche_kv`**，场景与 C++ 对齐）。详见 [bindings_python.md](bindings_python.md)。
 
 在**仓库根目录**执行：
 
@@ -91,8 +105,9 @@ cd /path/to/yche-distsys-playground
 
 # 只跑 KV 单测目标（推荐日常）
 bazel test //tests:kv_store_test
+bazel test //tests:kv_store_py_test
 
-# 跑 tests 包下所有 cc_test
+# 跑 tests 包下全部测试（cc_test + py_test）
 bazel test //tests/...
 
 # 失败时看详细输出（含 stdout/stderr）
@@ -104,11 +119,13 @@ bazel test //tests:kv_store_test --test_summary=detailed
 
 **如何判断通过**：命令退出码为 **0**，且终端出现类似 `//tests:kv_store_test PASSED`。失败时 Bazel 会打印失败原因并返回非 0。
 
-**说明**：单测源码为 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc)；辅助桩为 [`tests/support/test_runtime.*`](../tests/support/test_runtime.h)。
+**说明**：单测源码为 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc)、[`tests/kv_store_py_test.py`](../tests/kv_store_py_test.py)；辅助桩为 [`tests/support/test_runtime.*`](../tests/support/test_runtime.h)（仅 C++）。
 
 ## 运行冒烟（smoke）
 
-冒烟在 [`smoke/`](../smoke/) 下，目标为 **`//smoke:kv_smoke`**：在 **bthread stub** 里对 **内存后端** 的 `KvStore` 做一次 `set`/`get` 校验（依赖 [`//src/adapters/brpc:kv_brpc_adapter`](../src/adapters/brpc/)），用于快速验证「运行时适配 + KV 链路」能跑通。
+**C++**：[`smoke/`](../smoke/) 下 **`//smoke:kv_smoke`**，在 **bthread stub** 里对 **内存后端** 的 `KvStore` 做一次 `set`/`get` 校验（依赖 [`//src/adapters/brpc:kv_brpc_adapter`](../src/adapters/brpc/)），用于快速验证「运行时适配 + KV 链路」能跑通。
+
+**Python**：**`//smoke:kv_smoke_py`**，内存后端 + **`install_test_runtime()`**，一次 `set`/`get`；不依赖 brpc。见 [bindings_python.md](bindings_python.md)。
 
 在**仓库根目录**执行：
 
@@ -117,6 +134,7 @@ cd /path/to/yche-distsys-playground
 
 # 构建并执行冒烟（Bazel 会编译依赖后运行二进制）
 bazel run //smoke:kv_smoke
+bazel run //smoke:kv_smoke_py
 
 # 显式看进程退出码（0 表示通过）
 bazel run //smoke:kv_smoke; echo "exit=$?"

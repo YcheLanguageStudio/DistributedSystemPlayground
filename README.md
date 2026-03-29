@@ -9,6 +9,7 @@
 | Bazel 输出目录（`build/` 等）含义 | [docs/bazel_output.md](docs/bazel_output.md) |
 | 覆盖率原理、`gcov`/lcov、沙箱与操作 | [docs/coverage.md](docs/coverage.md) |
 | clangd / `compile_commands.json` / Cursor 索引步骤 | [docs/ide_indexing.md](docs/ide_indexing.md) |
+| Python 绑定（pybind11）与 `yche_kv` | [docs/bindings_python.md](docs/bindings_python.md) |
 
 ---
 
@@ -22,13 +23,15 @@
 
 Bazel 目标：`//src/kv:kv_core`、`//src/adapters/brpc:kv_brpc_adapter`。
 
-`bindings/python/` 预留后续 **pybind** 绑定，当前无实现。
+[`bindings/python/`](bindings/python/) 提供 **pybind11** 包 **`yche_kv`**（详见 [docs/bindings_python.md](docs/bindings_python.md)）。
 
 ---
 
 ## `tests/` 下验证的用例
 
-目标 **`//tests:kv_store_test`**（[`tests/kv_store_test.cc`](tests/kv_store_test.cc)），使用 **内存后端** 与 [`tests/support/test_runtime`](tests/support/test_runtime.h)（同步执行 `Executor` + 同步 `WaitCallback`，不链接 brpc）。
+**C++**：目标 **`//tests:kv_store_test`**（[`tests/kv_store_test.cc`](tests/kv_store_test.cc)），使用 **内存后端** 与 [`tests/support/test_runtime`](tests/support/test_runtime.h)（同步执行 `Executor` + 同步 `WaitCallback`，不链接 brpc）。
+
+**Python**：目标 **`//tests:kv_store_py_test`**（[`tests/kv_store_py_test.py`](tests/kv_store_py_test.py)），`unittest` 场景与 C++ 单测对齐，调用 **`yche_kv.install_test_runtime()`**。
 
 | 场景 | 断言要点 |
 |------|----------|
@@ -51,11 +54,12 @@ bazel build //src/kv:kv_core
 # brpc 风格适配（默认依赖 third_party 中的 bthread stub）
 bazel build //src/adapters/brpc:kv_brpc_adapter
 
-# 测试与冒烟二进制
+# 测试与冒烟（C++ / Python）
 bazel build //tests:kv_store_test //smoke:kv_smoke
+bazel build //bindings/python:yche_kv //bindings/python:yche_kv_whl //tests:kv_store_py_test //smoke:kv_smoke_py
 ```
 
-首次构建需联网拉取 **hiredis** 与 BCR 模块；依赖与 `MODULE.bazel.lock` 说明见 [docs/build.md](docs/build.md)。
+首次构建需联网拉取 **hiredis** 与 BCR 模块；依赖与 `MODULE.bazel.lock` 说明见 [docs/build.md](docs/build.md)。可选使用根目录 **[`build.sh`](build.sh)** 一键组合构建 / 测试 / 冒烟（见 [docs/build.md](docs/build.md) 中「便捷脚本」）。
 
 生成 **`compile_commands.json`**（clangd）见 [docs/ide_indexing.md](docs/ide_indexing.md)；**C++ 覆盖率**见 [docs/coverage.md](docs/coverage.md)；命令速查仍见 [docs/build.md](docs/build.md)。
 
@@ -66,11 +70,13 @@ bazel build //tests:kv_store_test //smoke:kv_smoke
 ```bash
 # 单元测试（UT）
 bazel test //tests:kv_store_test
+bazel test //tests:kv_store_py_test
 # 或
 bazel test //tests/...
 
 # 冒烟（smoke）
 bazel run //smoke:kv_smoke
+bazel run //smoke:kv_smoke_py
 ```
 
 详细参数（如 `--test_output=all`、查看产物路径 `./build/bin/smoke/kv_smoke`）见 [docs/build.md](docs/build.md) 中「运行单元测试」「运行冒烟」两节。
@@ -81,6 +87,7 @@ bazel run //smoke:kv_smoke
 
 - **KV 语义**：在注入 `Executor` + `WaitCallback` 的前提下，`KvStore::get` / `set` 与内存后端、连接池协作正确。
 - **单测路径**：同步 `test_runtime` 下内存读写、缺失键、未安装运行时三种行为符合预期。
+- **Python 绑定**：`yche_kv`（pybind11）与 C++ 单测场景一致的 **`//tests:kv_store_py_test`**，以及 **`//smoke:kv_smoke_py`**。
 - **冒烟路径**：`InstallBrpcRuntime` + **stub `bthread`**（`bthread_start_background` / `bthread_join` / `bthread_yield`）下，在子「bthread」中完成一次 `set`/`get` 校验（内存后端）。
 - **未作为默认 CI 验证的内容**：真实 Redis 进程、完整 **Apache brpc** 源码替换（需自行改 `MODULE.bazel` 的 `local_path_override` 并满足 brpc 的依赖与 registry）。
 
