@@ -2,6 +2,8 @@
 
 本仓库使用 **Bazel**（bzlmod）与 **C++17**。已在 **Bazel 9** + `rules_cc` 下验证通过。
 
+**专题文档**：输出目录释义见 [bazel_output.md](bazel_output.md)；覆盖率原理与操作见 [coverage.md](coverage.md)；clangd / 编译数据库与 Cursor 索引见 [ide_indexing.md](ide_indexing.md)。
+
 ## 依赖与环境
 
 | 项目 | 说明 |
@@ -11,6 +13,56 @@
 | 网络 | 首次构建需下载 **hiredis** 源码包（`MODULE.bazel` 中 `http_archive`）及 BCR 模块。 |
 | Redis | **可选**。默认单测与冒烟使用 **内存后端**；仅在使用 `KvStoreOptions::Backend::Redis` 或 `MakeRedisStoreForBrpc` 时需要可用的 Redis。 |
 | Apache brpc | **可选**。当前通过 **`third_party/brpc_stub_module`** 提供最小 `bthread_*` 实现以便默认可编译；若需真实 brpc，将官方仓库置于 `third_party/brpc` 并修改根 `MODULE.bazel` 中的 `local_path_override`（版本需与 brpc 的 `MODULE.bazel` 一致）。 |
+
+## 输出目录（`build/`）
+
+完整释义见 [bazel_output.md](bazel_output.md)。以下为速览。
+
+根目录 [`.bazelrc`](../.bazelrc) 中配置了 **`--symlink_prefix=build/`**：构建成功后，**便捷符号链接**会出现在 **`build/`** 下（例如 `build/bin`、`build/out`、`build/testlogs`，以及指向 execroot 的工作区名链接），不再在仓库根目录生成 `bazel-*`。
+
+- **二进制**：例如冒烟可执行文件为 `build/bin/smoke/kv_smoke`（与原先 `./bazel-bin/...` 对应）。
+- **真实沙箱与编译缓存**：仍在 Bazel 的 **output base**（Linux 上多为 `~/.cache/bazel/_bazel_<用户>/...`），**不在**仓库内的 `build/`。若希望把整个 output base 也挪到本机固定路径，可在**个人**配置里使用启动项 `startup --output_base=绝对路径`（不推荐把机器相关绝对路径提交进仓库）。
+
+从旧布局（根目录 `bazel-*`）迁移后，可执行一次 `bazel clean` 再构建，以去掉根目录遗留链接。
+
+## IDE / 索引（Cursor、C++）
+
+步骤与原理见 [ide_indexing.md](ide_indexing.md)。以下为命令摘要。
+
+- **Cursor / 语义索引**：默认会索引工作区；`build/` 仅为链接与构建视图，对阅读源码帮助不大。仓库根目录的 [`.cursorignore`](../.cursorignore) 已忽略 **`build/`**，减少干扰、加快索引。
+- **`compile_commands.json`（clangd）**：本仓库使用 [hedron compile commands](https://github.com/hedronvision/bazel-compile-commands-extractor)（见根目录 [`MODULE.bazel`](../MODULE.bazel)、[`BUILD.bazel`](../BUILD.bazel)）。生成或更新根目录的 `compile_commands.json`：
+
+  ```bash
+  bazel run --config=compile-commands //:refresh_compile_commands
+  ```
+
+  **说明**：生成器会检查仓库根目录下的 **`bazel-out`** 符号链接。日常构建使用 [`.bazelrc`](../.bazelrc) 里的 `--symlink_prefix=build/`，因此刷新时请加上 **`--config=compile-commands`**（临时改用 `bazel-*` 链接布局）。也可用上游目标 `bazel run --config=compile-commands @hedron_compile_commands//:refresh_all`（同样需该 config）。
+
+  生成的 `compile_commands.json` 已在 [`.gitignore`](../.gitignore) 中忽略；需要提交时可用 `git add -f compile_commands.json`。
+
+## 代码覆盖率（C++）
+
+原理、沙箱与排错见 [coverage.md](coverage.md)。根目录 [`.bazelrc`](../.bazelrc) 中定义了 **`--config=coverage`**（采集覆盖率、`instrumentation_filter` 指向 `//src/kv` 与 `//tests`、合并 **lcov** 报告）。
+
+```bash
+# 示例：跑单测并生成合并报告（输出路径见命令结尾的 INFO）
+bazel coverage --config=coverage //tests:kv_store_test
+```
+
+也可使用包装脚本：在 **`--config=coverage`** 与 **`GCOV`** 配对之外，成功结束后会**自动生成** **`./coverage-html/index.html`**（需 **`lcov`**；不需要时用 **`SKIP_COVERAGE_HTML=1`**）。
+
+```bash
+chmod +x tools/coverage.sh   # 仅需一次
+./tools/coverage.sh //tests:kv_store_test
+```
+
+**GCOV 与编译器须一致**：若 **`gcc`** 与默认 **`gcov`** 主版本不一致（例如 `gcc` 为 9、`gcov` 指向 13），会出现 **`version 'A95*', prefer 'B33*'`** 与 **`gcov` 段错误**。优先使用 **`./tools/coverage.sh`**（会按 **`${CC:-gcc}`** 推导配套 **`gcov`** 并传入沙箱）；或手动指定，例如：
+
+```bash
+GCOV=/usr/bin/x86_64-linux-gnu-gcov-9 bazel coverage --config=coverage //tests:kv_store_test
+```
+
+详见 [coverage.md](coverage.md)。合并后的 lcov 路径见日志中的 **`INFO: LCOV coverage report is located at ...`**；**`./tools/coverage.sh`** 会在 Bazel 结束后生成 **`coverage-html/index.html`**（纯手打 **`bazel coverage`** 时则需自行 **`genhtml`**，见 [coverage.md](coverage.md)）。
 
 ## 常用命令（速查）
 
@@ -69,9 +121,9 @@ bazel run //smoke:kv_smoke
 # 显式看进程退出码（0 表示通过）
 bazel run //smoke:kv_smoke; echo "exit=$?"
 
-# 也可先构建再直接跑产物（路径以 Bazel 输出为准）
+# 也可先构建再直接跑产物（路径以 Bazel 输出为准；便捷链接在 build/bin，见下方「输出目录」）
 bazel build //smoke:kv_smoke
-./bazel-bin/smoke/kv_smoke; echo "exit=$?"
+./build/bin/smoke/kv_smoke; echo "exit=$?"
 ```
 
 **如何判断通过**：进程退出码为 **0**；非 0 表示逻辑或构建失败（源码见 [`smoke/kv_smoke.cc`](../smoke/kv_smoke.cc)）。

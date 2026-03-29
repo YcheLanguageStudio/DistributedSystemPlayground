@@ -1,0 +1,10 @@
+# So clangd resolves includes like "yche/kv/store.h" (see //src/kv:kv_core includes).
+# Paths are relative to this file's directory (repository root).
+CompileFlags:
+  Add:
+    - -I
+    - src/kv/include
+    - -I
+    - src/adapters/brpc
+    - -I
+    - tests

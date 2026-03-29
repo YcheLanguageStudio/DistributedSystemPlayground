@@ -1,5 +1,20 @@
+# Convenience symlinks live under build/ (bin, out, testlogs, <workspace>) instead of bazel-* at repo root.
+# Sandboxes and caches still use Bazel's output base (default ~/.cache/bazel/...), not this directory.
+build --symlink_prefix=build/
+
 build --cxxopt=-std=c++17
 build --copt=-Wall
 build --copt=-Wextra
 build --copt=-Wno-unused-parameter
 test --test_output=errors
+
+# compile_commands.json (//:refresh_compile_commands): hedron checks for ./bazel-out; override symlink layout for that run only:
+#   bazel run --config=compile-commands //:refresh_compile_commands
+common:compile-commands --symlink_prefix=bazel-
+
+# C++ coverage (lcov): bazel coverage --config=coverage //tests/...
+# Forward GCOV into test/coverage actions (otherwise sandbox may pick default gcov on PATH).
+common:coverage --action_env=GCOV
+common:coverage --collect_code_coverage
+common:coverage --instrumentation_filter="//src/kv[/:],//tests[/:]"
+common:coverage --combined_report=lcov

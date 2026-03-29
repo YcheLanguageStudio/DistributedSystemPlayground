@@ -1,0 +1,11 @@
+load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
+
+refresh_compile_commands(
+    name = "refresh_compile_commands",
+    targets = [
+        "//src/kv:kv_core",
+        "//src/adapters/brpc:kv_brpc_adapter",
+        "//tests:kv_store_test",
+        "//smoke:kv_smoke",
+    ],
+)

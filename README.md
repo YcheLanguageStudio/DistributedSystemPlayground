@@ -4,6 +4,12 @@
 
 更细的构建参数、依赖说明与命令示例见 [docs/build.md](docs/build.md)；设计背景见 [docs/design_kv.md](docs/design_kv.md)。
 
+| 专题 | 文档 |
+|------|------|
+| Bazel 输出目录（`build/` 等）含义 | [docs/bazel_output.md](docs/bazel_output.md) |
+| 覆盖率原理、`gcov`/lcov、沙箱与操作 | [docs/coverage.md](docs/coverage.md) |
+| clangd / `compile_commands.json` / Cursor 索引步骤 | [docs/ide_indexing.md](docs/ide_indexing.md) |
+
 ---
 
 ## `src/` 目录与功能
@@ -51,6 +57,8 @@ bazel build //tests:kv_store_test //smoke:kv_smoke
 
 首次构建需联网拉取 **hiredis** 与 BCR 模块；依赖与 `MODULE.bazel.lock` 说明见 [docs/build.md](docs/build.md)。
 
+生成 **`compile_commands.json`**（clangd）见 [docs/ide_indexing.md](docs/ide_indexing.md)；**C++ 覆盖率**见 [docs/coverage.md](docs/coverage.md)；命令速查仍见 [docs/build.md](docs/build.md)。
+
 ---
 
 ## 如何运行
@@ -65,7 +73,7 @@ bazel test //tests/...
 bazel run //smoke:kv_smoke
 ```
 
-详细参数（如 `--test_output=all`、查看产物路径 `./bazel-bin/smoke/kv_smoke`）见 [docs/build.md](docs/build.md) 中「运行单元测试」「运行冒烟」两节。
+详细参数（如 `--test_output=all`、查看产物路径 `./build/bin/smoke/kv_smoke`）见 [docs/build.md](docs/build.md) 中「运行单元测试」「运行冒烟」两节。
 
 ---
 
