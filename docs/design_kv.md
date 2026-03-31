@@ -26,6 +26,15 @@
 
 - ✅ 支持连接池、超时控制、错误码，满足生产级需求
 
+## 1.3 当前仓库 adaptor 最小接口
+
+`tests/async_kvcstore/adapters/brpc_runtime.h` 当前保留两类 runtime 安装入口，便于测试与冒烟代码分层：
+
+- `InstallThreadPoolRuntime(AsyncKvStore&, size_t)`：只演示 pthread thread pool 方式。
+- `InstallBrpcExecutorRuntime(AsyncKvStore&)`：只演示 brpc/bthread executor + `bthread_yield` 等待方式。
+
+推荐在业务代码中以“`KvStore` 核心 + `AsyncKvStore` 适配层”方式安装 runtime，而不是扩展多个 init 入口。
+
 # 二、完整代码实现
 
 ## 2.1 通用缓存核心头文件（safe_cache.h）

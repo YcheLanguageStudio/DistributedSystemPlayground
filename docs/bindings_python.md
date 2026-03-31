@@ -42,8 +42,8 @@ bazel build //bindings/python:yche_kv_whl_stable
 ## API 概要
 
 - **`KvStoreOptions`**：`backend`（`Backend.Memory` / `Backend.Redis`）、`redis_host`、`redis_port`、`pool_size`。
-- **`KvStore`**：`install_test_runtime()`（与 C++ 单测相同的同步 Executor/WaitCallback）、`set(key, value, expire_ms=0, timeout_ms)`、`get(key, timeout_ms)` → `(ok: bool, value: str)`、`last_error()` → `KvError`。
-- 与 C++ 一样，**必须先** `install_test_runtime()`（或将来接入其它运行时适配），否则 `get`/`set` 会失败且 `last_error` 多为 **`UNKNOWN`**。
+- **`KvStore`**：`install_test_runtime()`（兼容旧接口，当前实现为 no-op）、`set(key, value, expire_ms=0, timeout_ms)`、`get(key, timeout_ms)` → `(ok: bool, value: str)`、`last_error()` → `KvError`。
+- 当前 `KvStore` 为同步核心层：`get`/`set` 可直接使用；读取不存在键时 `last_error` 为 **`KEY_NOT_FOUND`**。
 
 ## 测试与冒烟
 

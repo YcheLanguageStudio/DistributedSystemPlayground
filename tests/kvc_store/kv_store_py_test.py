@@ -1,4 +1,4 @@
-"""Python UT for yche_kv (mirrors tests/kv_store_test.cc scenarios)."""
+"""Python UT for yche_kv (mirrors tests/kvc_store/kv_store_test.cc scenarios)."""
 
 import unittest
 
@@ -33,7 +33,7 @@ class TestKvStore(unittest.TestCase):
         store = KvStore(opt)
         ok, _val = store.get("k", timeout_ms=50)
         self.assertFalse(ok)
-        self.assertEqual(store.last_error(), KvError.UNKNOWN)
+        self.assertEqual(store.last_error(), KvError.KEY_NOT_FOUND)
 
 
 if __name__ == "__main__":

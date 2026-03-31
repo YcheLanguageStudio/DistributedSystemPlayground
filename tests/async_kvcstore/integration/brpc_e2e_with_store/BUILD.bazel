@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+
+proto_library(
+    name = "kv_brpc_e2e_proto",
+    srcs = ["kv_brpc_e2e.proto"],
+)
+
+cc_proto_library(
+    name = "kv_brpc_e2e_cc_proto",
+    deps = [":kv_brpc_e2e_proto"],
+)
+
+cc_test(
+    name = "brpc_rpc_e2e_test",
+    size = "medium",
+    srcs = ["brpc_rpc_e2e_test.cc"],
+    deps = [
+        ":kv_brpc_e2e_cc_proto",
+        "//tests:kv_brpc_test_adapter",
+        "//src/kv:kv_adapters",
+        "@brpc//:brpc",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

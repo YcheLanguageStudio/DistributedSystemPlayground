@@ -1,5 +1,6 @@
-#include "brpc_runtime.h"
+#include "async_kvcstore/adapters/brpc_runtime.h"
 
+#include "yche/kv/adapters/async_store.h"
 #include "yche/kv/store.h"
 #include "yche/kv/types.h"
 
@@ -11,13 +12,13 @@
 namespace {
 
 struct RunArg {
-    yche::kv::KvStore* store;
+    yche::kv::adapters::AsyncKvStore* store;
     int exit_code{0};
 };
 
 void* RunSmoke(void* p) {
     auto* a = static_cast<RunArg*>(p);
-    yche::kv::KvStore& st = *a->store;
+    yche::kv::adapters::AsyncKvStore& st = *a->store;
     std::string v;
     if (!st.set("smoke_key", "smoke_val", 0, 100)) {
         a->exit_code = 2;
@@ -42,10 +43,12 @@ int main() {
     opt.backend = yche::kv::KvStoreOptions::Backend::Memory;
     opt.pool_size = 4;
     yche::kv::KvStore store(opt);
-    yche::kv::adapters::brpc::InstallBrpcRuntime(store);
+    yche::kv::adapters::AsyncKvStore async_store(store);
+    yche::kv::adapters::brpc::InstallThreadPoolRuntime(async_store);
+    yche::kv::adapters::brpc::InstallBrpcExecutorRuntime(async_store);
 
     RunArg arg;
-    arg.store = &store;
+    arg.store = &async_store;
     bthread_t tid{};
     if (bthread_start_background(&tid, nullptr, RunSmoke, &arg) != 0) {
         return 10;

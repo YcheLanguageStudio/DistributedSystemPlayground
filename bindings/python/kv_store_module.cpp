@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <functional>
 #include <string>
 
 #include "yche/kv/error.h"
@@ -15,17 +14,8 @@ using yche::kv::KvStoreOptions;
 
 namespace {
 
-void InstallTestRuntime(KvStore& store) {
-    store.set_executor([](std::function<void()> f) {
-        if (f) {
-            f();
-        }
-    });
-    store.set_waiter([](std::function<void()> yield) {
-        if (yield) {
-            yield();
-        }
-    });
+void InstallTestRuntime(KvStore& /*store*/) {
+    // Kept for API compatibility: core KvStore is synchronous now.
 }
 
 }  // namespace

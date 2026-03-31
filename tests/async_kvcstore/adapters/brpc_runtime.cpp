@@ -1,8 +1,16 @@
-#include "brpc_runtime.h"
+#include "async_kvcstore/adapters/brpc_runtime.h"
 
-#include "yche/kv/types.h"
-
+#if __has_include(<bthread/bthread.h>)
 #include <bthread/bthread.h>
+#else
+using bthread_t = unsigned long;
+inline int bthread_start_background(bthread_t*, const void*, void* (*fn)(void*), void* arg) {
+    (void)fn;
+    (void)arg;
+    return -1;
+}
+inline int bthread_yield() { return 0; }
+#endif
 
 #include <condition_variable>
 #include <deque>
@@ -78,28 +86,41 @@ private:
 
 }  // namespace
 
-void InstallBrpcRuntime(KvStore& store, size_t worker_threads) {
+void InstallThreadPoolRuntime(adapters::AsyncKvStore& store, size_t worker_threads) {
     const size_t n = worker_threads == 0 ? 8 : worker_threads;
     static std::once_flag once;
     static std::unique_ptr<ThreadPool> pool_ptr;
     std::call_once(once, [&] { pool_ptr = std::make_unique<ThreadPool>(n); });
 
     store.set_executor([](std::function<void()> f) { pool_ptr->Submit(std::move(f)); });
-    store.set_waiter([](std::function<void()>) { (void)bthread_yield(); });
+    store.set_waiter([](std::function<void()>) { std::this_thread::yield(); });
 }
 
-KvStore MakeRedisStoreForBrpc(const std::string& host,
-                              int port,
-                              size_t conn_pool_size,
-                              size_t worker_threads) {
-    KvStoreOptions opt;
-    opt.backend = KvStoreOptions::Backend::Redis;
-    opt.redis_host = host;
-    opt.redis_port = port;
-    opt.pool_size = conn_pool_size == 0 ? 8 : conn_pool_size;
-    KvStore store(std::move(opt));
-    InstallBrpcRuntime(store, worker_threads);
-    return store;
+namespace {
+
+void* RunBthreadTask(void* arg) {
+    auto task = static_cast<std::function<void()>*>(arg);
+    if (task && *task) {
+        (*task)();
+    }
+    delete task;
+    return nullptr;
+}
+
+}  // namespace
+
+void InstallBrpcExecutorRuntime(adapters::AsyncKvStore& store) {
+    store.set_executor([](std::function<void()> f) {
+        auto* task = new std::function<void()>(std::move(f));
+        bthread_t tid{};
+        if (bthread_start_background(&tid, nullptr, RunBthreadTask, task) == 0) {
+            return;
+        }
+        // Fallback for unexpected bthread start failures.
+        (*task)();
+        delete task;
+    });
+    store.set_waiter([](std::function<void()>) { (void)bthread_yield(); });
 }
 
 }  // namespace yche::kv::adapters::brpc

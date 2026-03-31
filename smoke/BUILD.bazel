@@ -4,7 +4,7 @@ load("@rules_python//python:py_binary.bzl", "py_binary")
 cc_binary(
     name = "kv_smoke",
     srcs = ["kv_smoke.cc"],
-    deps = ["//src/adapters/brpc:kv_brpc_adapter"],
+    deps = ["//tests:kv_brpc_test_adapter"],
 )
 
 py_binary(

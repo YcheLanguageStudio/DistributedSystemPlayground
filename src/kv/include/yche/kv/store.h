@@ -1,6 +1,5 @@
 #pragma once
 
-#include "yche/kv/adapters/runtime_hooks.h"
 #include "yche/kv/error.h"
 #include "yche/kv/types.h"
 
@@ -18,9 +17,6 @@ public:
     KvStore& operator=(const KvStore&) = delete;
     KvStore(KvStore&&) noexcept;
     KvStore& operator=(KvStore&&) noexcept;
-
-    void set_executor(Executor e);
-    void set_waiter(WaitCallback w);
 
     bool get(const std::string& key, int timeout_ms, std::string& value);
     bool set(const std::string& key, const std::string& value, int expire_ms, int timeout_ms);

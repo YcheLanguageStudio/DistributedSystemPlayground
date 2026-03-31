@@ -6,7 +6,7 @@
 
 ### 便捷脚本 [`build.sh`](../build.sh)
 
-在仓库根目录执行，默认 **`bazel build //src/kv:kv_core //src/adapters/brpc:kv_brpc_adapter`**。可选参数：
+在仓库根目录执行，默认 **`bazel build //src/kv:kv_core //tests:kv_brpc_test_adapter`**。可选参数：
 
 | 选项 | 含义 |
 |------|------|
@@ -26,8 +26,8 @@
 | Bazel | 建议 **6+**；当前 CI/本机验证为 **9.x**。若使用 [Bazelisk](https://github.com/bazelbuild/bazelisk)，仓库根目录曾提供 `.bazelversion`（可选，用于固定版本）。 |
 | C++ 编译器 | GCC/Clang，支持 **`-std=c++17`**。 |
 | 网络 | 首次构建需下载 **hiredis** 源码包（`MODULE.bazel` 中 `http_archive`）及 BCR 模块。 |
-| Redis | **可选**。默认单测与冒烟使用 **内存后端**；仅在使用 `KvStoreOptions::Backend::Redis` 或 `MakeRedisStoreForBrpc` 时需要可用的 Redis。 |
-| Apache brpc | **可选**。当前通过 **`third_party/brpc_stub_module`** 提供最小 `bthread_*` 实现以便默认可编译；若需真实 brpc，将官方仓库置于 `third_party/brpc` 并修改根 `MODULE.bazel` 中的 `local_path_override`（版本需与 brpc 的 `MODULE.bazel` 一致）。 |
+| Redis | **可选**。默认单测与冒烟使用 **内存后端**；仅在使用 `KvStoreOptions::Backend::Redis` 时需要可用的 Redis。 |
+| Apache brpc | 用于 adaptor 与 RPC e2e UT。仓库通过 bzlmod 直接依赖 `brpc` 模块。 |
 
 ## 输出目录（`build/`）
 
@@ -85,8 +85,8 @@ GCOV=/usr/bin/x86_64-linux-gnu-gcov-9 bazel coverage --config=coverage //tests:k
 # 构建 KV 核心库
 bazel build //src/kv:kv_core
 
-# 构建 brpc 风格运行时适配（pthread 池 + bthread_yield）
-bazel build //src/adapters/brpc:kv_brpc_adapter
+# 构建 brpc 风格运行时适配（测试侧，pthread 池 + bthread_yield）
+bazel build //tests:kv_brpc_test_adapter
 
 # 运行全部单元测试（见下方「运行 UT」）
 bazel test //tests/...
@@ -97,7 +97,7 @@ bazel run //smoke:kv_smoke
 
 ## 运行单元测试（UT）
 
-单元测试在 [`tests/`](../tests/) 下：**C++** 为 **GoogleTest** 的 **`cc_test`**（**`//tests:kv_store_test`**、`//tests:brpc_adapter_test`）；**Python** 为 **`py_test`**（**`//tests:kv_store_py_test`**，`unittest` + **`yche_kv`**，场景与 `kv_store_test` 对齐）。详见 [bindings_python.md](bindings_python.md)。
+单元测试在 [`tests/`](../tests/) 下：**C++** 为 **GoogleTest** 的 **`cc_test`**（**`//tests:kv_store_test`**、`//tests:async_kvcstore_integration_test`、`//tests:async_kvcstore_thread_pool_test`）；**Python** 为 **`py_test`**（**`//tests:kv_store_py_test`**，`unittest` + **`yche_kv`**，场景与 `kv_store_test` 对齐）。详见 [bindings_python.md](bindings_python.md)。
 
 在**仓库根目录**执行：
 
@@ -106,7 +106,9 @@ cd /path/to/yche-distsys-playground
 
 # 只跑部分 KV 单测（推荐日常）
 bazel test //tests:kv_store_test
-bazel test //tests:brpc_adapter_test
+bazel test //tests:async_kvcstore_integration_test
+bazel test //tests:async_kvcstore_thread_pool_test
+bazel test //tests/async_kvcstore/integration/brpc_e2e_with_store:brpc_rpc_e2e_test
 bazel test //tests:kv_store_py_test
 
 # 跑 tests 包下全部测试（cc_test + py_test）
@@ -121,13 +123,13 @@ bazel test //tests:kv_store_test --test_summary=detailed
 
 **如何判断通过**：命令退出码为 **0**，且终端出现各目标 **`PASSED`**。失败时 Bazel 会打印失败原因并返回非 0。
 
-**说明**：C++ 单测源码为 [`tests/kv_store_test.cc`](../tests/kv_store_test.cc)、[`tests/brpc_adapter_test.cc`](../tests/brpc_adapter_test.cc)、[`tests/kv_store_py_test.py`](../tests/kv_store_py_test.py)；辅助桩为 [`tests/support/test_runtime.*`](../tests/support/test_runtime.h)（仅 C++、供 `kv_store_test`）。
+**说明**：C++ 单测源码为 [`tests/kvc_store/kv_store_test.cc`](../tests/kvc_store/kv_store_test.cc)、[`tests/async_kvcstore/integration/brpc_adapter_integration_test.cc`](../tests/async_kvcstore/integration/brpc_adapter_integration_test.cc)、[`tests/async_kvcstore/thread_pool/async_store_thread_pool_test.cc`](../tests/async_kvcstore/thread_pool/async_store_thread_pool_test.cc)、[`tests/async_kvcstore/integration/brpc_e2e_with_store/brpc_rpc_e2e_test.cc`](../tests/async_kvcstore/integration/brpc_e2e_with_store/brpc_rpc_e2e_test.cc)、[`tests/kvc_store/kv_store_py_test.py`](../tests/kvc_store/kv_store_py_test.py)。
 
 ## 运行冒烟（smoke）
 
-**C++**：[`smoke/`](../smoke/) 下 **`//smoke:kv_smoke`**，在 **bthread stub** 里对 **内存后端** 的 `KvStore` 做一次 `set`/`get` 校验（依赖 [`//src/adapters/brpc:kv_brpc_adapter`](../src/adapters/brpc/)），用于快速验证「运行时适配 + KV 链路」能跑通。
+**C++**：[`smoke/`](../smoke/) 下 **`//smoke:kv_smoke`**，在 **bthread stub** 里对 **内存后端** 的 `KvStore` 做一次 `set`/`get` 校验（依赖 [`//tests:kv_brpc_test_adapter`](../tests/BUILD.bazel)），用于快速验证「运行时适配 + KV 链路」能跑通。
 
-**Python**：**`//smoke:kv_smoke_py`**，内存后端 + **`install_test_runtime()`**，一次 `set`/`get`；不依赖 brpc。见 [bindings_python.md](bindings_python.md)。
+**Python**：**`//smoke:kv_smoke_py`**，内存后端一次 `set`/`get`；不依赖 brpc。`install_test_runtime()` 仅为兼容旧接口。见 [bindings_python.md](bindings_python.md)。
 
 在**仓库根目录**执行：
 
@@ -157,8 +159,8 @@ bazel build //smoke:kv_smoke
 
 C++ 单测使用 **GoogleTest v1.17.0**，通过根目录 [`MODULE.bazel`](../MODULE.bazel) 的 **`http_archive`（仓库名 `com_google_googletest`）** 拉取官方 tarball，并由 [`third_party/googletest.BUILD`](../third_party/googletest.BUILD) 以 **`rules_cc` 的 `cc_library`** 构建 `:gtest` / `:gtest_main`。这样可在 **Bazel 9** 下工作；**未**使用 BCR 的 `bazel_dep(googletest)`，因其 `BUILD.bazel` 仍调用已移除的原生 `cc_*` 规则。
 
-- [`tests/kv_store_test.cc`](../tests/kv_store_test.cc) → `bazel test //tests:kv_store_test`（`@com_google_googletest//:gtest_main` + `test_runtime` + `//src/kv:kv_core`）。
-- [`tests/brpc_adapter_test.cc`](../tests/brpc_adapter_test.cc) → `bazel test //tests:brpc_adapter_test`（同上 gtest + `//src/adapters/brpc:kv_brpc_adapter`）。
+- [`tests/kvc_store/kv_store_test.cc`](../tests/kvc_store/kv_store_test.cc) → `bazel test //tests:kv_store_test`（`@com_google_googletest//:gtest_main` + `test_runtime` + `//src/kv:kv_adapters`）。
+- [`tests/async_kvcstore/integration/brpc_adapter_integration_test.cc`](../tests/async_kvcstore/integration/brpc_adapter_integration_test.cc) → `bazel test //tests:async_kvcstore_integration_test`（同上 gtest + `//tests:kv_brpc_test_adapter`）。
 
 运行全部测试：`bazel test //tests/...`。
 

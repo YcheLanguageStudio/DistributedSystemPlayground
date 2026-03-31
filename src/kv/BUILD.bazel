@@ -17,3 +17,15 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = ["@hiredis//:hiredis"],
 )
+
+cc_library(
+    name = "kv_adapters",
+    srcs = ["adapters/async_store.cpp"],
+    hdrs = [
+        "include/yche/kv/adapters/async_store.h",
+        "include/yche/kv/adapters/runtime_hooks.h",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [":kv_core"],
+)

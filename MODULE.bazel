@@ -4,6 +4,8 @@ module(
 )
 
 bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "33.4")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 
@@ -32,9 +34,8 @@ git_override(
     remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
 )
 
-# Minimal bthread API stub so //smoke and //src/adapters/brpc build without cloning Apache brpc.
-# To use real brpc: clone apache/brpc into third_party/brpc and point local_path_override there
-# (see README.md). Module name and version must match brpc's MODULE.bazel.
+# Minimal bthread API stub so test/smoke brpc adapter targets build without cloning Apache brpc.
+# For full Apache brpc RPC e2e, replace this override with a real brpc source/module.
 bazel_dep(name = "brpc", version = "1.16.0")
 local_path_override(
     module_name = "brpc",

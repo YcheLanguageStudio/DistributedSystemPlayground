@@ -1,6 +1,6 @@
-#include "brpc_runtime.h"
+#include "async_kvcstore/adapters/brpc_runtime.h"
 
-#include "yche/kv/store.h"
+#include "yche/kv/adapters/async_store.h"
 #include "yche/kv/types.h"
 
 #include <bthread/bthread.h>
@@ -11,14 +11,14 @@
 namespace {
 
 struct RunArg {
-    yche::kv::KvStore* store{nullptr};
+    yche::kv::adapters::AsyncKvStore* store{nullptr};
     bool ok{false};
     std::string error;
 };
 
 void* RunGetSet(void* p) {
     auto* a = static_cast<RunArg*>(p);
-    yche::kv::KvStore& st = *a->store;
+    yche::kv::adapters::AsyncKvStore& st = *a->store;
     std::string v;
     if (!st.set("t_key", "t_val", 0, 100)) {
         a->error = "set failed";
@@ -38,15 +38,17 @@ void* RunGetSet(void* p) {
 
 }  // namespace
 
-TEST(BrpcAdapterTest, BthreadGetSetWithMemoryBackend) {
+TEST(BrpcAdapterIntegrationTest, BthreadGetSetWithMemoryBackend) {
     yche::kv::KvStoreOptions opt;
     opt.backend = yche::kv::KvStoreOptions::Backend::Memory;
     opt.pool_size = 4;
     yche::kv::KvStore store(opt);
-    yche::kv::adapters::brpc::InstallBrpcRuntime(store, 4);
+    yche::kv::adapters::AsyncKvStore async_store(store);
+    yche::kv::adapters::brpc::InstallThreadPoolRuntime(async_store, 4);
+    yche::kv::adapters::brpc::InstallBrpcExecutorRuntime(async_store);
 
     RunArg arg;
-    arg.store = &store;
+    arg.store = &async_store;
     bthread_t tid{};
     ASSERT_EQ(bthread_start_background(&tid, nullptr, RunGetSet, &arg), 0);
     void* join_ret = nullptr;

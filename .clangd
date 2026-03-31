@@ -3,6 +3,8 @@
 CompileFlags:
   Add:
     - -I
+    - .
+    - -I
     - src/kv/include
     - -I
     - src/adapters/brpc

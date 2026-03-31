@@ -2,31 +2,48 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("@rules_python//python:py_test.bzl", "py_test")
 
 cc_library(
-    name = "test_runtime",
-    srcs = ["support/test_runtime.cpp"],
-    hdrs = ["support/test_runtime.h"],
-    includes = ["."],
-    visibility = ["//visibility:private"],
-    deps = ["//src/kv:kv_core"],
+    name = "kv_brpc_test_adapter",
+    srcs = ["async_kvcstore/adapters/brpc_runtime.cpp"],
+    hdrs = ["async_kvcstore/adapters/brpc_runtime.h"],
+    includes = [
+        ".",
+        "../src/kv/include",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/kv:kv_adapters",
+        "@brpc//:brpc",
+    ],
 )
 
 cc_test(
     name = "kv_store_test",
     size = "small",
-    srcs = ["kv_store_test.cc"],
+    srcs = ["kvc_store/kv_store_test.cc"],
     deps = [
-        ":test_runtime",
-        "//src/kv:kv_core",
+        "//src/kv:kv_adapters",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
 cc_test(
-    name = "brpc_adapter_test",
+    name = "async_kvcstore_integration_test",
     size = "small",
-    srcs = ["brpc_adapter_test.cc"],
+    srcs = ["async_kvcstore/integration/brpc_adapter_integration_test.cc"],
     deps = [
-        "//src/adapters/brpc:kv_brpc_adapter",
+        "//src/kv:kv_adapters",
+        ":kv_brpc_test_adapter",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "async_kvcstore_thread_pool_test",
+    size = "small",
+    srcs = ["async_kvcstore/thread_pool/async_store_thread_pool_test.cc"],
+    deps = [
+        "//src/kv:kv_adapters",
+        ":kv_brpc_test_adapter",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -34,7 +51,17 @@ cc_test(
 py_test(
     name = "kv_store_py_test",
     size = "small",
-    srcs = ["kv_store_py_test.py"],
-    main = "kv_store_py_test.py",
+    srcs = ["kvc_store/kv_store_py_test.py"],
+    main = "kvc_store/kv_store_py_test.py",
     deps = ["//bindings/python:yche_kv"],
+)
+
+test_suite(
+    name = "all_cpp_tests",
+    tests = [
+        ":async_kvcstore_integration_test",
+        ":async_kvcstore_thread_pool_test",
+        ":kv_store_test",
+        "//tests/async_kvcstore/integration/brpc_e2e_with_store:brpc_rpc_e2e_test",
+    ],
 )

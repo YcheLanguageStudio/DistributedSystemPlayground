@@ -8,7 +8,7 @@ BAZEL="${BAZEL:-bazel}"
 
 DEFAULT_TARGETS=(
   "//src/kv:kv_core"
-  "//src/adapters/brpc:kv_brpc_adapter"
+  "//tests:kv_brpc_test_adapter"
 )
 
 WITH_PYTHON=0
@@ -16,13 +16,14 @@ WITH_WHEEL=0
 WITH_BUILD_TESTS=0
 RUN_TESTS=0
 RUN_SMOKE=0
+RUN_COVERAGE=0
 DO_ALL=0
 
 usage() {
   cat <<'EOF'
 Usage: ./build.sh [options]
 
-  Default: bazel build //src/kv:kv_core //src/adapters/brpc:kv_brpc_adapter
+  Default: bazel build //src/kv:kv_core //tests:kv_brpc_test_adapter
 
 Options:
   -h, --help          Show this help
@@ -31,7 +32,7 @@ Options:
   -b, --build-tests   Also build C++/Python test and smoke binaries (does not run them)
   -t, --test          Run bazel test //tests/...
   -s, --smoke         Run //smoke:kv_smoke and //smoke:kv_smoke_py
-  -a, --all           Build kv + brpc + python + all test/smoke targets, then run tests and smoke
+  -a, --all           Build kv + test-side brpc adapter + python + all test/smoke targets, then run tests and smoke
 
 Environment:
   BAZEL   Bazel executable (default: bazel)
@@ -85,6 +86,7 @@ if [[ "$DO_ALL" -eq 1 ]]; then
   WITH_BUILD_TESTS=1
   RUN_TESTS=1
   RUN_SMOKE=1
+  RUN_COVERAGE=1
 fi
 
 BUILD_TARGETS=("${DEFAULT_TARGETS[@]}")
@@ -97,7 +99,9 @@ fi
 if [[ "$WITH_BUILD_TESTS" -eq 1 ]]; then
   BUILD_TARGETS+=(
     "//tests:kv_store_test"
-    "//tests:brpc_adapter_test"
+    "//tests:async_kvcstore_integration_test"
+    "//tests:async_kvcstore_thread_pool_test"
+    "//tests/async_kvcstore/integration/brpc_e2e_with_store:brpc_rpc_e2e_test"
     "//tests:kv_store_py_test"
     "//smoke:kv_smoke"
     "//smoke:kv_smoke_py"
@@ -124,4 +128,9 @@ if [[ "$RUN_SMOKE" -eq 1 ]]; then
   $BAZEL run "//smoke:kv_smoke"
   echo "+ $BAZEL run //smoke:kv_smoke_py"
   $BAZEL run "//smoke:kv_smoke_py"
+fi
+
+if [[ "$RUN_COVERAGE" -eq 1 ]]; then
+  echo "+ ./tools/coverage.sh //tests:kv_store_test"
+  ./tools/coverage.sh "//tests:kv_store_test"
 fi
